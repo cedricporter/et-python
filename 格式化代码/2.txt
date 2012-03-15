@@ -1,0 +1,39 @@
+Program 			 -> external_declaration
+external_declaration-> Func_definitions | external_decl_stmt
+Func_definitions	 -> {Func_definition}+
+Func_definition	 -> type id ¡°(¡° param_type_list ¡°)¡± block
+external_decl_stmt -> <empty> | type declarators ¡°;¡±
+Type 			 -> int | float | double | char | long | ¡­¡­¡­¡­.
+Param_type_list 	 -> type id {type_param}* | <empty>
+Type_param		 -> ¡°,¡± type id | <empty>
+Block			 -> ¡°{¡° stmts ¡°}¡±
+Stmts        -> decl_stmt | if_stmt | while_stmt | for_stmt | dowhile_stmt |                               switch_stmt | return_stmt | assign | <empty>
+Decl_stmt		-> <empty> | type declarators ¡°;¡±
+Declarators		-> declarator { ¡°,¡± declarator }
+Declarator		-> {Pointer}? id { arrayDeclarator}	? assignForDecl
+Pointer			-> ¡°*¡± {pointer}?
+arrayDeclarator	-> ¡°[¡° {const_expr}? ¡°]¡± {arrayDeclarator}?
+const_expr		-> conditional_expr
+conditional_expr	-> logical_expr | logical_expr ¡°?¡± expr : conditional_expr
+assignForDecl		-> <empty> | ¡°=¡± expr
+factor			-> num | ¡°(¡° expr ¡°)¡± | abstract_declarator
+abstract_declarator-> id | id ¡°[¡° expr ¡°]¡± | id ¡°(¡° param_list ¡°)¡± | id ¡°->¡± abstract_declarator 
+| id ¡°.¡± abstract_declarator
+param_list		-> <empty> | param { ¡°,¡± param }*
+param			-> expr
+if_stmt			-> ¡°if¡± ¡°(¡° expr ¡°)¡± compound_stmt
+compound_stmt	-> block | stmt
+while_stmt		-> ¡°while¡± ¡°(¡° expr ¡°)¡± compound_stmt
+assign			-> Declarator ¡°=¡± expr	
+expr				-> assignment_expr {¡°,¡± assignment_expr }+
+assignment_expr	-> conditional_expr | unary_expr assgnment_op assignment_expr
+assgnment_op	  	-> ¡°=¡± | ¡°+=¡± | ¡­
+unary_op			-> ¡°&¡± | ¡°+¡± | ¡°*¡± | ¡­
+unary_expr		-> postfix_expr | ¡°++¡± unary_expr | ¡°¡ª¡° unary_expr | unary_op cast_expr
+cast_expr			-> unary_expr | ¡°(¡° type_name ¡°)¡± cast_expr
+postfix_expr		-> primary_expr { postfix_op }+
+postfix_op		-> ¡°[¡° expr ¡°]¡± | ¡°(¡° assignment_expr ¡°)¡± | ¡°->¡± id | ¡°.¡± Id | ¡°++¡± | ¡°¡ª¡°
+primary_expr		-> id | constant | string | ¡°(¡° expr ¡°)¡±
+constant			-> integer_const | char_const | floating_const | enum_const
+
+
