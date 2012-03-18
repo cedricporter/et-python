@@ -3,20 +3,19 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket
-import threading
-import pprint
+import socket, os, stat, threading, time
 
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
     When the connection receives CWD command, it'll use handle_CWD to handle it.
     '''
-    def __init__(self, fd):
+    def __init__(self, fd, remote_ip):
         self.fd = fd
         self.data_fd = 0
         self.data_host = ''
         self.data_port = 0
+        self.curr_dir = 'd:/'
         self.running = True
         self.handler = dict(
             [(method[7:], getattr(self, method)) \
@@ -31,8 +30,8 @@ class FTPConnection:
                 success, command, arg = self.recv()
                 print '[', command, ']', arg
                 if not success: 
-                    print "Fuck"
-                    return False
+                    self.send_msg(500, "Failed")
+                    continue
                 if not self.handler.has_key(command):
                     self.send_msg(500, "Command Not Found")
                     continue
@@ -95,9 +94,13 @@ class FTPConnection:
     def handle_BYE(self, arg):
         self.running = False
         self.send_msg(200, "OK")
+    def handle_CDUP(self, arg):
+        self.curr_dir = self.curr_dir[:self.curr_dir.rfind('/')]
+        self.send_msg(200, "OK")
     def handle_PWD(self, arg):
-        self.send_msg(257, "/")
+        self.send_msg(257, self.curr_dir)
     def handle_CWD(self, arg):
+        self.curr_dir += '/' + arg
         self.send_msg(250, "OK")
     def handle_SYST(self, arg):
         self.send_msg(215, "UNIX")
@@ -106,8 +109,18 @@ class FTPConnection:
     def handle_LIST(self, arg):
         if not self.connect(): return 
         self.send_msg(125, "OK")
-        template = "d%s%s------- %04u %8s %8s %8lu %s %s\r\n"
-        self.data_fd.send(template % ('r', 'w', 1, '0', '0', 1, 'Mar 1', 'a.txt'))
+        template = "%s%s%s------- %04u %8s %8s %8lu %s %s\r\n"
+        for filename in os.listdir(self.curr_dir):
+            path = self.curr_dir + '/' + filename
+            status = os.stat(path)
+            self.data_fd.send(template % (
+                'd' if os.path.isdir(path) else '-',
+                'r',
+                'w', 
+                1, '0', '0', 
+                status[stat.ST_SIZE], 
+                time.strftime("%b %d  %Y", time.localtime(status[stat.ST_MTIME])), 
+                filename))
         self.send_msg(226, "Limit")
         self.close_data_fd()
     def handle_PORT(self, arg):
@@ -126,9 +139,9 @@ class FTPConnection:
 
 class FTPThread(threading.Thread):
     '''FTPConnection Thread Wrapper'''
-    def __init__(self, fd):
+    def __init__(self, fd, remote_ip):
         threading.Thread.__init__(self)
-        self.ftp = FTPConnection(fd)
+        self.ftp = FTPConnection(fd, remote_ip)
 
     def run(self):
         self.ftp.start()
@@ -143,7 +156,7 @@ class FTPServer:
         s.listen(512)
         while True:
             client_fd, client_addr = s.accept()
-            handler = FTPThread(client_fd)
+            handler = FTPThread(client_fd, client_addr)
             handler.start()
 
 def main():
