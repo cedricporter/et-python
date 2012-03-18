@@ -14,7 +14,9 @@ class FTPConnection:
     '''
     def __init__(self, fd):
         self.fd = fd
-        self.data_fd = fd
+        self.data_fd = 0
+        self.data_host = ''
+        self.data_port = 0
         self.running = True
         self.handler = dict(
             [(method[7:], getattr(self, method)) \
@@ -66,6 +68,23 @@ class FTPConnection:
     def say_bye(self):
         self.send_msg(220, "Good Bye")
 
+    def connect(self):
+        '''establish data connection'''
+        if self.data_fd == 0:
+            self.send_msg(500, "no data connection")
+            return False
+        else:
+            try:
+                self.data_fd.connect((self.data_host, self.data_port))
+            except:
+                self.send_msg(500, "failed to connect")
+                return False
+        return True
+
+    def close_data_fd(self):
+        self.data_fd.close()
+        self.data_fd = 0
+
     # Command Handlers
     def handle_USER(self, arg):
         self.send_msg(230, "OK")
@@ -76,16 +95,33 @@ class FTPConnection:
     def handle_BYE(self, arg):
         self.running = False
         self.send_msg(200, "OK")
+    def handle_PWD(self, arg):
+        self.send_msg(257, "/")
     def handle_CWD(self, arg):
-        self.send_msg(200, "OK")
+        self.send_msg(250, "OK")
     def handle_SYST(self, arg):
         self.send_msg(215, "UNIX")
     def handle_TYPE(self, arg):
         self.send_msg(220, "OK")
     def handle_LIST(self, arg):
+        if not self.connect(): return 
         self.send_msg(125, "OK")
+        template = "d%s%s------- %04u %8s %8s %8lu %s %s\r\n"
+        self.data_fd.send(template % ('r', 'w', 1, '0', '0', 1, 'Mar 1', 'a.txt'))
+        self.send_msg(226, "Limit")
+        self.close_data_fd()
     def handle_PORT(self, arg):
-        self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            if self.data_fd:
+                self.data_fd.close()
+            t = arg.split(',')
+            self.data_host = '.'.join(t[:4])
+            self.data_port = int(t[4]) * 256 + int(t[5])
+            self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print self.data_host, self.data_port
+        except:
+            self.send_msg(500, "PORT failed")
+        self.send_msg(200, "OK")
 
 
 class FTPThread(threading.Thread):
