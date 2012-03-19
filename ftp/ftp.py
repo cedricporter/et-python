@@ -14,6 +14,7 @@ class FTPConnection:
     def __init__(self, fd, remote_ip):
         self.fd = fd
         self.data_fd = 0
+        self.options = {'pasv': False}
         self.data_host = ''
         self.data_port = 0
         self.home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
@@ -74,6 +75,10 @@ class FTPConnection:
         if self.data_fd == 0:
             self.send_msg(500, "no data connection")
             return False
+        elif self.options['pasv']:
+            fd = self.data_fd.accept()[0]
+            self.data_fd.close()
+            self.data_fd = fd
         else:
             try:
                 self.data_fd.connect((self.data_host, self.data_port))
@@ -142,7 +147,6 @@ class FTPConnection:
         f.close()
         self.close_data_fd()
         self.send_msg(226, "OK")
-
     def handle_RETR(self, arg):
         print 'in RETR'
         remote, local = self.parse_path(arg)
@@ -177,6 +181,18 @@ class FTPConnection:
                 filename))
         self.send_msg(226, "Limit")
         self.close_data_fd()
+    def handle_PASV(self, arg):
+        self.options['pasv'] = True
+        try:
+            self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.data_fd.bind(('0.0.0.0', 0))
+            self.data_fd.listen(1)
+            ip, port = self.data_fd.getsockname()
+            self.send_msg(227, 'Enter Passive Mode (%s,%u,%u).' %
+                    (','.join(ip.split('.')), (port >> 8 & 0xff), (port & 0xff)))
+        except Exception, e:
+            print e
+            self.send_msg(500, 'passive mode failed')
     def handle_PORT(self, arg):
         try:
             if self.data_fd:
