@@ -5,7 +5,7 @@
 #
 import socket, os, stat, threading, time
 
-
+listen_host = '0.0.0.0'
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
@@ -76,7 +76,7 @@ class FTPConnection:
             self.send_msg(500, "no data connection")
             return False
         elif self.options['pasv']:
-            fd = self.data_fd.accept()[0]
+            fd, addr = self.data_fd.accept()
             self.data_fd.close()
             self.data_fd = fd
         else:
@@ -114,7 +114,7 @@ class FTPConnection:
     def handle_PASS(self, arg):
         self.send_msg(230, "OK")
     def handle_QUIT(self, arg):
-        self.handle_BYE()
+        self.handle_BYE(arg)
     def handle_BYE(self, arg):
         self.running = False
         self.send_msg(200, "OK")
@@ -185,7 +185,7 @@ class FTPConnection:
         self.options['pasv'] = True
         try:
             self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.data_fd.bind(('0.0.0.0', 0))
+            self.data_fd.bind((self.fd.getsockname()[0], 0))
             self.data_fd.listen(1)
             ip, port = self.data_fd.getsockname()
             self.send_msg(227, 'Enter Passive Mode (%s,%u,%u).' %
@@ -219,7 +219,7 @@ class FTPThread(threading.Thread):
 
 class FTPServer:
     def serve_forever(self):
-        host = '0.0.0.0'
+        host = listen_host
         port = 21
         s = socket.socket()
         s.bind((host, port))
