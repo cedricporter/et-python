@@ -40,6 +40,7 @@ class FTPConnection:
                     continue
                 self.handler[command](arg)
         except Exception, e:
+            self.running = False
             print e
 
         self.say_bye()
@@ -166,6 +167,14 @@ class FTPConnection:
         self.send_msg(226, "OK")
     def handle_TYPE(self, arg):
         self.send_msg(220, "OK")
+    def handle_NLST(self, arg):
+        if not self.data_connect(): return
+        self.send_msg(125, "OK")
+        remote, local = self.parse_path(self.curr_dir)
+        for filename in os.listdir(local):
+            self.data_fd.send(filename + '\r\n')
+        self.send_msg(226, "Limit")
+        self.close_data_fd()
     def handle_LIST(self, arg):
         if not self.data_connect(): return 
         self.send_msg(125, "OK")
