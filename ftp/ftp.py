@@ -131,6 +131,9 @@ class FTPConnection:
         remote, local = self.parse_path(arg)
         self.curr_dir = remote
         self.send_msg(250, "OK")
+    def handle_SIZE(self, arg):
+        remote, local = self.parse_path(self.curr_dir)
+        self.send_msg(231, str(os.path.getsize(local)))
     def handle_SYST(self, arg):
         self.send_msg(215, "UNIX")
     def handle_STOR(self, arg):
