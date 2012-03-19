@@ -6,6 +6,7 @@
 import socket, os, stat, threading, time
 
 
+
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
     When the connection receives CWD command, it'll use handle_CWD to handle it.
@@ -15,7 +16,8 @@ class FTPConnection:
         self.data_fd = 0
         self.data_host = ''
         self.data_port = 0
-        self.curr_dir = 'd:/'
+        self.home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
+        self.curr_dir = '/'
         self.running = True
         self.handler = dict(
             [(method[7:], getattr(self, method)) \
@@ -36,8 +38,8 @@ class FTPConnection:
                     self.send_msg(500, "Command Not Found")
                     continue
                 self.handler[command](arg)
-        except:
-            return False
+        except Exception, e:
+            print e
 
         self.say_bye()
         return True
@@ -65,9 +67,9 @@ class FTPConnection:
         self.send_msg(220, "Welcome to EverET.org FTP")
 
     def say_bye(self):
-        self.send_msg(220, "Good Bye")
+        self.handle_BYE('')
 
-    def connect(self):
+    def data_connect(self):
         '''establish data connection'''
         if self.data_fd == 0:
             self.send_msg(500, "no data connection")
@@ -84,6 +86,23 @@ class FTPConnection:
         self.data_fd.close()
         self.data_fd = 0
 
+    def parse_path(self, path):
+        if path == '': path = '.'
+        if path[0] != '/':
+            path = self.curr_dir + '/' + path
+        print 'parse_path', path
+        split_path = os.path.normpath(path).replace('\\', '/').split('/')
+        remote = ''
+        local = self.home_dir
+        for item in split_path:
+            item = item.lstrip('.')
+            if item == '': continue
+            remote += '/' + item
+            local += '/' + item
+        if remote == '': remote = '/'
+        print 'remote', remote, 'local', local
+        return remote, local
+
     # Command Handlers
     def handle_USER(self, arg):
         self.send_msg(230, "OK")
@@ -95,23 +114,58 @@ class FTPConnection:
         self.running = False
         self.send_msg(200, "OK")
     def handle_CDUP(self, arg):
+        self.send_msg(500, 'failed')
+        return
         self.curr_dir = self.curr_dir[:self.curr_dir.rfind('/')]
         self.send_msg(200, "OK")
     def handle_PWD(self, arg):
-        self.send_msg(257, self.curr_dir)
+        print 'in PWD', self.curr_dir
+        remote, local = self.parse_path(self.curr_dir)
+        self.send_msg(257, remote)
     def handle_CWD(self, arg):
-        self.curr_dir += '/' + arg
+        remote, local = self.parse_path(arg)
+        self.curr_dir = remote
         self.send_msg(250, "OK")
     def handle_SYST(self, arg):
         self.send_msg(215, "UNIX")
+    def handle_STOR(self, arg):
+        print 'in STOR'
+        remote, local = self.parse_path(arg)
+        if not self.data_connect(): return
+        self.send_msg(125, "OK")
+        f = open(local, 'wb')
+        print f, local
+        while True:
+            data = self.data_fd.recv(8192)
+            if len(data) == 0: break
+            f.write(data)
+        f.close()
+        self.close_data_fd()
+        self.send_msg(226, "OK")
+
+    def handle_RETR(self, arg):
+        print 'in RETR'
+        remote, local = self.parse_path(arg)
+        if not self.data_connect(): return
+        self.send_msg(125, "OK")
+        f = open(local, 'rb')
+        print f, local
+        while True:
+            data = f.read(8192)
+            if len(data) == 0: break
+            self.data_fd.send(data)
+        f.close()
+        self.close_data_fd()
+        self.send_msg(226, "OK")
     def handle_TYPE(self, arg):
         self.send_msg(220, "OK")
     def handle_LIST(self, arg):
-        if not self.connect(): return 
+        if not self.data_connect(): return 
         self.send_msg(125, "OK")
         template = "%s%s%s------- %04u %8s %8s %8lu %s %s\r\n"
-        for filename in os.listdir(self.curr_dir):
-            path = self.curr_dir + '/' + filename
+        remote, local = self.parse_path(self.curr_dir)
+        for filename in os.listdir(local):
+            path = local + '/' + filename
             status = os.stat(path)
             self.data_fd.send(template % (
                 'd' if os.path.isdir(path) else '-',
