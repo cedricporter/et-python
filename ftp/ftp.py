@@ -17,6 +17,7 @@ class FTPConnection:
         self.options = {'pasv': False}
         self.data_host = ''
         self.data_port = 0
+        self.localhost = fd.getsockname()[0]
         self.home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
         self.curr_dir = '/'
         self.running = True
@@ -167,6 +168,14 @@ class FTPConnection:
         self.send_msg(226, "OK")
     def handle_TYPE(self, arg):
         self.send_msg(220, "OK")
+    def handle_RNFR(self, arg):
+        remote, local = self.parse_path(arg)
+        self.rename_tmp_path = local
+        self.send_msg(350, 'rename from ' + remote)
+    def handle_RNTO(self, arg):
+        remote, local = self.parse_path(arg)
+        os.rename(self.rename_tmp_path, local)
+        self.send_msg(250, 'rename to ' + remote)
     def handle_NLST(self, arg):
         if not self.data_connect(): return
         self.send_msg(125, "OK")
@@ -175,6 +184,18 @@ class FTPConnection:
             self.data_fd.send(filename + '\r\n')
         self.send_msg(226, "Limit")
         self.close_data_fd()
+    def handle_XMKD(self, arg):
+        self.handle_MKD(arg)
+    def handle_MKD(self, arg):
+        remote, local = self.parse_path(arg)
+        os.mkdir(local)
+        self.send_msg(257, "OK")
+    def handle_XRMD(self, arg):
+        self.handle_RMD(arg)
+    def handle_RMD(self, arg):
+        remote, local = self.parse_path(arg)
+        os.rmdir(local)
+        self.send_msg(250, "OK")
     def handle_LIST(self, arg):
         if not self.data_connect(): return 
         self.send_msg(125, "OK")
@@ -197,7 +218,7 @@ class FTPConnection:
         self.options['pasv'] = True
         try:
             self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.data_fd.bind((self.fd.getsockname()[0], 0))
+            self.data_fd.bind((self.localhost, 0))
             self.data_fd.listen(1)
             ip, port = self.data_fd.getsockname()
             self.send_msg(227, 'Enter Passive Mode (%s,%u,%u).' %
