@@ -31,6 +31,7 @@ class FTPConnection:
             self.say_welcome()
             while self.running:
                 success, command, arg = self.recv()
+                command = command.upper()
                 if self.options['utf8']:
                     arg = unicode(arg, 'utf8').encode(sys.getfilesystemencoding())
                 print '[', command, ']', arg
@@ -129,7 +130,7 @@ class FTPConnection:
         self.send_msg(200, "OK")
     def handle_PWD(self, arg):
         print 'in PWD', self.curr_dir
-        remote, local = self.parse_path(self.curr_dir)
+        remote, local = self.parse_path('"' + self.curr_dir + '"')
         self.send_msg(257, remote)
     def handle_CWD(self, arg):
         remote, local = self.parse_path(arg)
@@ -259,6 +260,7 @@ class FTPConnection:
         os.remove(local)
         self.send_msg(250, 'File deleted')
     def handle_OPTS(self, arg):
+        print 'in OPTS'
         if arg.upper() == "UTF8 ON":
             self.options['utf8'] = True
             self.send_msg(200, "OK")
