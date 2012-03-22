@@ -3,7 +3,7 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time
+import socket, os, stat, threading, time, sys
 
 listen_host = '0.0.0.0'
 
@@ -14,7 +14,7 @@ class FTPConnection:
     def __init__(self, fd, remote_ip):
         self.fd = fd
         self.data_fd = 0
-        self.options = {'pasv': False}
+        self.options = {'pasv': False, 'utf8': False}
         self.data_host = ''
         self.data_port = 0
         self.localhost = fd.getsockname()[0]
@@ -26,12 +26,13 @@ class FTPConnection:
             for method in dir(self) \
             if method.startswith("handle_") and callable(getattr(self, method))])
 
-    def start(self):
-        self.say_welcome()
-
+    def start(self): 
         try:
+            self.say_welcome()
             while self.running:
                 success, command, arg = self.recv()
+                if self.options['utf8']:
+                    arg = unicode(arg, 'utf8').encode(sys.getfilesystemencoding())
                 print '[', command, ']', arg
                 if not success: 
                     self.send_msg(500, "Failed")
@@ -40,14 +41,16 @@ class FTPConnection:
                     self.send_msg(500, "Command Not Found")
                     continue
                 self.handler[command](arg)
+            self.say_bye()
         except Exception, e:
             self.running = False
             print e
 
-        self.say_bye()
         return True
 
     def send_msg(self, code, msg):
+        if self.options['utf8']:
+            msg = unicode(msg, sys.getfilesystemencoding()).encode('utf8')
         message = str(code) + ' ' + msg + '\r\n'
         self.fd.send(message)
 
@@ -95,15 +98,14 @@ class FTPConnection:
 
     def parse_path(self, path):
         if path == '': path = '.'
-        if path[0] != '/':
-            path = self.curr_dir + '/' + path
+        if path[0] != '/': path = self.curr_dir + '/' + path
         print 'parse_path', path
         split_path = os.path.normpath(path).replace('\\', '/').split('/')
-        remote = ''
+        remote = '' 
         local = self.home_dir
+        print split_path
         for item in split_path:
-            item = item.lstrip('.')
-            if item == '': continue
+            if item.startswith('..') or item == '': continue # ignore parent directory
             remote += '/' + item
             local += '/' + item
         if remote == '': remote = '/'
@@ -131,6 +133,10 @@ class FTPConnection:
         self.send_msg(257, remote)
     def handle_CWD(self, arg):
         remote, local = self.parse_path(arg)
+        if not os.path.exists(local):
+            self.send_msg(500, "Path not exist")
+            return
+        print 'handle_CWD', remote
         self.curr_dir = remote
         self.send_msg(250, "OK")
     def handle_SIZE(self, arg):
@@ -188,12 +194,18 @@ class FTPConnection:
         self.handle_MKD(arg)
     def handle_MKD(self, arg):
         remote, local = self.parse_path(arg)
+        if os.path.exists(local):
+            self.send_msg(500, "Folder is already existed")
+            return
         os.mkdir(local)
         self.send_msg(257, "OK")
     def handle_XRMD(self, arg):
         self.handle_RMD(arg)
     def handle_RMD(self, arg):
         remote, local = self.parse_path(arg)
+        if not os.path.exists(local):
+            self.send_msg(500, "Folder is not existed")
+            return
         os.rmdir(local)
         self.send_msg(250, "OK")
     def handle_LIST(self, arg):
@@ -203,15 +215,16 @@ class FTPConnection:
         remote, local = self.parse_path(self.curr_dir)
         for filename in os.listdir(local):
             path = local + '/' + filename
-            status = os.stat(path)
-            self.data_fd.send(template % (
-                'd' if os.path.isdir(path) else '-',
-                'r',
-                'w', 
-                1, '0', '0', 
-                status[stat.ST_SIZE], 
-                time.strftime("%b %d  %Y", time.localtime(status[stat.ST_MTIME])), 
-                filename))
+            if os.path.isfile(path) or os.path.isdir(path): # ignores link or block file
+                status = os.stat(path)
+                msg = template % (
+                    'd' if os.path.isdir(path) else '-',
+                    'r', 'w', 1, '0', '0', 
+                    status[stat.ST_SIZE], 
+                    time.strftime("%b %d  %Y", time.localtime(status[stat.ST_MTIME])), 
+                    filename)
+                if self.options['utf8']: msg = unicode(msg, sys.getfilesystemencoding()).encode('utf8')
+                self.data_fd.send(msg)
         self.send_msg(226, "Limit")
         self.close_data_fd()
     def handle_PASV(self, arg):
@@ -238,6 +251,23 @@ class FTPConnection:
         except:
             self.send_msg(500, "PORT failed")
         self.send_msg(200, "OK")
+    def handle_DELE(self, arg):
+        remote, local = self.parse_path(arg)
+        if not os.path.exists(local):
+            self.send_msg(450, "File not exist")
+            return
+        os.remove(local)
+        self.send_msg(250, 'File deleted')
+    def handle_OPTS(self, arg):
+        if arg.upper() == "UTF8 ON":
+            self.options['utf8'] = True
+            self.send_msg(200, "OK")
+        elif arg.upper() == "UTF8 OFF":
+            self.options['utf8'] = False
+            self.send_msg(200, "OK")
+        else:
+            self.send_msg(500, "Invalid argument")
+            
 
 
 class FTPThread(threading.Thread):
@@ -248,6 +278,7 @@ class FTPThread(threading.Thread):
 
     def run(self):
         self.ftp.start()
+        print "Thread done"
 
 
 class FTPServer:
