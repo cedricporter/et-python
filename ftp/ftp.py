@@ -51,7 +51,7 @@ class FTPConnection:
                     continue
                 self.handler[command](arg)
             self.say_bye()
-            self.client_fd.close()
+            self.fd.close()
         except Exception, e:
             self.running = False
             print e
@@ -332,11 +332,13 @@ class FTPForkServer:
             fork_result = os.fork()
             if fork_result == 0: # child process
                 uid = get_uid(runas_user)
-                os.setuid(uid)
                 os.setgid(uid)
+                os.setuid(uid)
                 print uid
-                handler = FTPConnection(client_fd, client_addr)
-                handler.start()
+                try:
+                    handler = FTPConnection(client_fd, client_addr)
+                    handler.start()
+                except: pass
                 break
             #except:
             #    print 'Fork failed'
