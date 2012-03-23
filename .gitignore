@@ -1,7 +1,13 @@
 
 *~
+*.pyc
+./ropeproject/
 /image/cell/test.bmpftp/.ropeproject/objectdb
 ftp/.ropeproject/history
 ftp/.ropeproject/config.py
 ftp/.ropeproject/globalnames
 ftp/.ropeproject/objectdb
+port_redirect/.ropeproject/config.py
+port_redirect/.ropeproject/globalnames
+port_redirect/.ropeproject/history
+port_redirect/.ropeproject/objectdb

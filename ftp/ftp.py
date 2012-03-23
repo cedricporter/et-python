@@ -5,7 +5,10 @@
 #
 import socket, os, stat, threading, time, sys
 
-listen_host = '0.0.0.0'
+account_info = {
+    'et':{'pass':'12345', 'home_dir':'/root/'},
+    'lst':{'pass':'54321', 'home_dir':'/tmp/'}
+    }
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
@@ -60,7 +63,11 @@ class FTPConnection:
         try:
             success, buf, command, arg = True, '', '', ''
             while True:
-                buf += self.fd.recv(4096)
+                data = self.fd.recv(4096)
+                if not data:
+                    self.running = False
+                    break
+                buf += data
                 if buf[-2:] == '\r\n': break
             split = buf.find(' ')
             command, arg = (buf[:split], buf[split + 1:].strip()) if split != -1 else (buf.strip(), '')
@@ -115,9 +122,19 @@ class FTPConnection:
 
     # Command Handlers
     def handle_USER(self, arg):
-        self.send_msg(230, "OK")
+        if arg in account_info:
+            self.username = arg
+            self.send_msg(331, "Need password")
+        else:
+            self.send_msg(500, "Invalid User")
+            self.running = False
     def handle_PASS(self, arg):
-        self.send_msg(230, "OK")
+        if arg == account_info[self.username]['pass']: 
+            self.home_dir = account_info[self.username]['home_dir']
+            self.send_msg(230, "OK")
+        else:
+            self.send_msg(500, "Invalid Password")
+            self.running = False
     def handle_QUIT(self, arg):
         self.handle_BYE(arg)
     def handle_BYE(self, arg):
@@ -128,6 +145,8 @@ class FTPConnection:
         return
         self.curr_dir = self.curr_dir[:self.curr_dir.rfind('/')]
         self.send_msg(200, "OK")
+    def handle_XPWD(self, arg):
+        self.handle_PWD(arg)
     def handle_PWD(self, arg):
         print 'in PWD', self.curr_dir
         remote, local = self.parse_path(self.curr_dir)
@@ -285,12 +304,14 @@ class FTPThread(threading.Thread):
 
 class FTPServer:
     def serve_forever(self):
+        listen_host = '0.0.0.0'
         host = listen_host
         port = 21
         s = socket.socket()
         s.bind((host, port))
         s.listen(512)
         while True:
+            print 'new server'
             client_fd, client_addr = s.accept()
             handler = FTPThread(client_fd, client_addr)
             handler.start()
@@ -300,4 +321,6 @@ def main():
     server.serve_forever()
 
 if __name__ == '__main__':
+    import sys
+    sys.stdout = open('/var/log/ftp.py.log', 'w')
     main()
