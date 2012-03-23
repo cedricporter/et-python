@@ -333,6 +333,7 @@ class FTPForkServer:
             if fork_result == 0: # child process
                 uid = get_uid(runas_user)
                 os.setuid(uid)
+                os.setgid(uid)
                 print uid
                 handler = FTPConnection(client_fd, client_addr)
                 handler.start()
