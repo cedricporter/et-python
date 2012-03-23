@@ -3,7 +3,12 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time, sys
+import socket, os, stat, threading, time, sys, re
+
+host = '0.0.0.0'
+port = 21
+
+runas_user = 'www-data'
 
 account_info = {
     'et':{'pass':'12345', 'home_dir':'/root/'},
@@ -21,7 +26,7 @@ class FTPConnection:
         self.data_host = ''
         self.data_port = 0
         self.localhost = fd.getsockname()[0]
-        self.home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
+        self.home_dir = '/tmp/'
         self.curr_dir = '/'
         self.running = True
         self.handler = dict(
@@ -46,6 +51,7 @@ class FTPConnection:
                     continue
                 self.handler[command](arg)
             self.say_bye()
+            self.client_fd.close()
         except Exception, e:
             self.running = False
             print e
@@ -301,12 +307,9 @@ class FTPThread(threading.Thread):
         self.ftp.start()
         print "Thread done"
 
-
-class FTPServer:
+class FTPThreadServer:
+    '''FTP Server which is using thread'''
     def serve_forever(self):
-        listen_host = '0.0.0.0'
-        host = listen_host
-        port = 21
         s = socket.socket()
         s.bind((host, port))
         s.listen(512)
@@ -316,11 +319,45 @@ class FTPServer:
             handler = FTPThread(client_fd, client_addr)
             handler.start()
 
+class FTPForkServer:
+    '''FTP Fork Server, use process per user'''
+    def serve_forever(self):
+        s = socket.socket()
+        s.bind((host, port))
+        s.listen(512)
+        while True:
+            print 'new server'
+            client_fd, client_addr = s.accept()
+            #try:
+            fork_result = os.fork()
+            if fork_result == 0: # child process
+                uid = get_uid(runas_user)
+                os.setuid(uid)
+                print uid
+                handler = FTPConnection(client_fd, client_addr)
+                handler.start()
+                break
+            #except:
+            #    print 'Fork failed'
+
+def get_uid(username = 'www-data'):
+    '''get uid by username, I don't know whether there's a
+    function can get it, so I wrote this function.'''
+    pwd = open('/etc/passwd', 'r')
+    pat = re.compile(username + ':.*?:(.*?):.*?')
+    for line in pwd.readlines():
+        try:
+            uid = pat.search(line).group(1)
+        except: continue
+        return int(uid)
+
+
 def main():
-    server = FTPServer()
+    #server = FTPThreadServer()
+    server = FTPForkServer()
     server.serve_forever()
 
 if __name__ == '__main__':
     import sys
-    sys.stdout = open('/var/log/ftp.py.log', 'w')
+    #sys.stdout = open('/var/log/ftp.py.log', 'w')
     main()
