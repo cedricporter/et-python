@@ -130,8 +130,8 @@ class FTPConnection:
         self.send_msg(200, "OK")
     def handle_PWD(self, arg):
         print 'in PWD', self.curr_dir
-        remote, local = self.parse_path('"' + self.curr_dir + '"')
-        self.send_msg(257, remote)
+        remote, local = self.parse_path(self.curr_dir)
+        self.send_msg(257, '"' + remote + '"')
     def handle_CWD(self, arg):
         remote, local = self.parse_path(arg)
         if not os.path.exists(local):
