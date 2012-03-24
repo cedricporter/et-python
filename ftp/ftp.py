@@ -334,8 +334,6 @@ class FTPForkServer:
             try:
                 fork_result = os.fork()
                 if fork_result == 0: # child process
-                    #fork_result = os.fork()
-                    #if fork_result != 0: sys.exit()
                     uid = get_uid(runas_user)
                     os.setgid(uid)
                     os.setuid(uid)
