@@ -331,22 +331,22 @@ class FTPForkServer:
         while True:
             print 'new server'
             client_fd, client_addr = s.accept()
-            #try:
-            fork_result = os.fork()
-            if fork_result == 0: # child process
+            try:
                 fork_result = os.fork()
-                if fork_result != 0: sys.exit()
-                uid = get_uid(runas_user)
-                os.setgid(uid)
-                os.setuid(uid)
-                print uid
-                try:
-                    handler = FTPConnection(client_fd, client_addr)
-                    handler.start()
-                except: pass
-                break
-            #except:
-            #    print 'Fork failed'
+                if fork_result == 0: # child process
+                    #fork_result = os.fork()
+                    #if fork_result != 0: sys.exit()
+                    uid = get_uid(runas_user)
+                    os.setgid(uid)
+                    os.setuid(uid)
+                    print uid
+                    try:
+                        handler = FTPConnection(client_fd, client_addr)
+                        handler.start()
+                    except: pass
+                    break
+            except:
+                print 'Fork failed'
 
 def get_uid(username = 'www-data'):
     '''get uid by username, I don't know whether there's a
