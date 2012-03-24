@@ -11,9 +11,13 @@ port = 21
 runas_user = 'www-data'
 
 account_info = {
-    'et':{'pass':'12345', 'home_dir':'/root/'},
-    'lst':{'pass':'54321', 'home_dir':'/tmp/'}
-    }
+    'anonymous':{'pass':'', 'home_dir':'/tmp/'},
+    } 
+try:
+    '''You can write your account_info in ftp.py.config'''
+    execfile('ftp.py.config')
+except Exception, e:
+    print e
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
@@ -337,7 +341,6 @@ class FTPForkServer:
                     uid = get_uid(runas_user)
                     os.setgid(uid)
                     os.setuid(uid)
-                    print uid
                     try:
                         handler = FTPConnection(client_fd, client_addr)
                         handler.start()
