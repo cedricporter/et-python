@@ -49,7 +49,11 @@ class FTPConnection:
                 if not self.handler.has_key(command):
                     self.send_msg(500, "Command Not Found")
                     continue
-                self.handler[command](arg)
+                try:
+                    self.handler[command](arg)
+                except OSError, e:
+                    print e
+                    self.send_msg(500, 'Permission denied')
             self.say_bye()
             self.fd.close()
         except Exception, e:
@@ -137,10 +141,9 @@ class FTPConnection:
     def handle_PASS(self, arg):
         if arg == account_info[self.username]['pass']: 
             self.home_dir = account_info[self.username]['home_dir']
-            self.send_msg(230, "OK")
-        else:
-            self.send_msg(500, "Invalid Password")
-            self.running = False
+            if os.path.isdir(self.home_dir):
+                self.send_msg(230, "OK")
+                return
     def handle_QUIT(self, arg):
         self.handle_BYE(arg)
     def handle_BYE(self, arg):
