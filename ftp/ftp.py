@@ -3,7 +3,7 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time, sys, re
+import socket, os, stat, threading, time, sys, re, signal
 
 host = '0.0.0.0'
 port = 21
@@ -331,6 +331,8 @@ class FTPForkServer:
             #try:
             fork_result = os.fork()
             if fork_result == 0: # child process
+                fork_result = os.fork()
+                if fork_result != 0: sys.exit()
                 uid = get_uid(runas_user)
                 os.setgid(uid)
                 os.setuid(uid)
@@ -363,4 +365,6 @@ def main():
 if __name__ == '__main__':
     import sys
     #sys.stdout = open('/var/log/ftp.py.log', 'w')
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
     main()
