@@ -156,10 +156,7 @@ class FTPConnection:
         self.running = False
         self.send_msg(200, "OK")
     def handle_CDUP(self, arg):
-        self.send_msg(500, 'failed')
-        return
-        self.curr_dir = self.curr_dir[:self.curr_dir.rfind('/')]
-        self.send_msg(200, "OK")
+        self.handle_CWD('..')
     def handle_XPWD(self, arg):
         self.handle_PWD(arg)
     def handle_PWD(self, arg):
@@ -315,27 +312,28 @@ class FTPThread(threading.Thread):
 class FTPThreadServer:
     '''FTP Server which is using thread'''
     def serve_forever(self):
-        s = socket.socket()
-        s.bind((host, port))
-        s.listen(512)
+        listen_fd = socket.socket()
+        listen_fd.bind((host, port))
+        listen_fd.listen(512)
         while True:
             print 'new server'
-            client_fd, client_addr = s.accept()
+            client_fd, client_addr = listen_fd.accept()
             handler = FTPThread(client_fd, client_addr)
             handler.start()
 
 class FTPForkServer:
     '''FTP Fork Server, use process per user'''
     def serve_forever(self):
-        s = socket.socket()
-        s.bind((host, port))
-        s.listen(512)
+        listen_fd = socket.socket()
+        listen_fd.bind((host, port))
+        listen_fd.listen(512)
         while True:
             print 'new server'
-            client_fd, client_addr = s.accept()
+            client_fd, client_addr = listen_fd.accept()
             try:
                 fork_result = os.fork()
                 if fork_result == 0: # child process
+                    listen_fd.close()
                     uid = get_uid(runas_user)
                     os.setgid(uid)
                     os.setuid(uid)
