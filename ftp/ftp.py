@@ -148,6 +148,8 @@ class FTPConnection:
             if os.path.isdir(self.home_dir):
                 self.send_msg(230, "OK")
                 return
+        self.send_msg(530, "Password is not corrected")
+        self.running = False
     def handle_QUIT(self, arg):
         self.handle_BYE(arg)
     def handle_BYE(self, arg):
@@ -161,24 +163,23 @@ class FTPConnection:
     def handle_XPWD(self, arg):
         self.handle_PWD(arg)
     def handle_PWD(self, arg):
-        print 'in PWD', self.curr_dir
         remote, local = self.parse_path(self.curr_dir)
         self.send_msg(257, '"' + remote + '"')
     def handle_CWD(self, arg):
         remote, local = self.parse_path(arg)
-        if not os.path.exists(local):
-            self.send_msg(500, "Path not exist")
-            return
-        print 'handle_CWD', remote
-        self.curr_dir = remote
-        self.send_msg(250, "OK")
+        try:
+            os.listdir(local)
+            self.curr_dir = remote
+            self.send_msg(250, "OK")
+        except Exception, e:
+            print e
+            self.send_msg(500, "Change directory failed!")
     def handle_SIZE(self, arg):
         remote, local = self.parse_path(self.curr_dir)
         self.send_msg(231, str(os.path.getsize(local)))
     def handle_SYST(self, arg):
         self.send_msg(215, "UNIX")
     def handle_STOR(self, arg):
-        print 'in STOR'
         remote, local = self.parse_path(arg)
         if not self.data_connect(): return
         self.send_msg(125, "OK")
@@ -197,7 +198,6 @@ class FTPConnection:
         if not self.data_connect(): return
         self.send_msg(125, "OK")
         f = open(local, 'rb')
-        print f, local
         while True:
             data = f.read(8192)
             if len(data) == 0: break
@@ -280,7 +280,6 @@ class FTPConnection:
             self.data_host = '.'.join(t[:4])
             self.data_port = int(t[4]) * 256 + int(t[5])
             self.data_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print self.data_host, self.data_port
         except:
             self.send_msg(500, "PORT failed")
         self.send_msg(200, "OK")
@@ -292,7 +291,6 @@ class FTPConnection:
         os.remove(local)
         self.send_msg(250, 'File deleted')
     def handle_OPTS(self, arg):
-        print 'in OPTS'
         if arg.upper() == "UTF8 ON":
             self.options['utf8'] = True
             self.send_msg(200, "OK")
