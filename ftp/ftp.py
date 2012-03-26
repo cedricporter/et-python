@@ -3,7 +3,8 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time, sys, re, signal, select
+import socket, os, stat, threading, time
+import sys, re, signal, select, logging, logging.handlers
 
 host = '0.0.0.0'
 port = 21
@@ -14,11 +15,6 @@ runas_user = 'www-data'
 account_info = {
     'anonymous':{'pass':'', 'home_dir':'/tmp/'},
     } 
-try:
-    '''You can write your account_info in ftp.py.config'''
-    execfile('ftp.py.config')
-except Exception, e:
-    print e
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
@@ -47,7 +43,7 @@ class FTPConnection:
                 command = command.upper()
                 if self.options['utf8']:
                     arg = unicode(arg, 'utf8').encode(sys.getfilesystemencoding())
-                print '[', command, ']', arg
+                logger.info('[ ' + command + ' ] ' + arg)
                 if not success: 
                     self.send_msg(500, "Failed")
                     continue
@@ -57,13 +53,13 @@ class FTPConnection:
                 try:
                     self.handler[command](arg)
                 except OSError, e:
-                    print e
+                    logger.error(e)
                     self.send_msg(500, 'Permission denied')
             self.say_bye()
             self.fd.close()
         except Exception, e:
             self.running = False
-            print e
+            logger.error(e)
 
         return True
 
@@ -122,17 +118,15 @@ class FTPConnection:
     def parse_path(self, path):
         if path == '': path = '.'
         if path[0] != '/': path = self.curr_dir + '/' + path
-        print 'parse_path', path
+        logger.info('parse_path ' + path)
         split_path = os.path.normpath(path).replace('\\', '/').split('/')
         remote = '' 
         local = self.home_dir
-        print split_path
         for item in split_path:
             if item.startswith('..') or item == '': continue # ignore parent directory
             remote += '/' + item
             local += '/' + item
         if remote == '': remote = '/'
-        print 'remote', remote, 'local', local
         return remote, local
 
     # Command Handlers
@@ -170,7 +164,7 @@ class FTPConnection:
             self.curr_dir = remote
             self.send_msg(250, "OK")
         except Exception, e:
-            print e
+            logger.error(e)
             self.send_msg(500, "Change directory failed!")
     def handle_SIZE(self, arg):
         remote, local = self.parse_path(self.curr_dir)
@@ -182,7 +176,6 @@ class FTPConnection:
         if not self.data_connect(): return
         self.send_msg(125, "OK")
         f = open(local, 'wb')
-        print f, local
         while True:
             data = self.data_fd.recv(8192)
             if len(data) == 0: break
@@ -191,7 +184,6 @@ class FTPConnection:
         self.close_data_fd()
         self.send_msg(226, "OK")
     def handle_RETR(self, arg):
-        print 'in RETR'
         remote, local = self.parse_path(arg)
         if not self.data_connect(): return
         self.send_msg(125, "OK")
@@ -268,7 +260,7 @@ class FTPConnection:
             self.send_msg(227, 'Enter Passive Mode (%s,%u,%u).' %
                     (','.join(ip.split('.')), (port >> 8 & 0xff), (port & 0xff)))
         except Exception, e:
-            print e
+            logger.error(e)
             self.send_msg(500, 'passive mode failed')
     def handle_PORT(self, arg):
         try:
@@ -308,7 +300,7 @@ class FTPThread(threading.Thread):
 
     def run(self):
         self.ftp.start()
-        print "Thread done"
+        logger.info("Thread done")
 
 class FTPThreadServer:
     '''FTP Server which is using thread'''
@@ -317,7 +309,7 @@ class FTPThreadServer:
         listen_fd.bind((host, port))
         listen_fd.listen(512)
         while True:
-            print 'new server'
+            logger.info('new server')
             client_fd, client_addr = listen_fd.accept()
             handler = FTPThread(client_fd, client_addr)
             handler.start()
@@ -350,14 +342,13 @@ class FTPForkServer:
             rlist, wlist, xlist = select.select(self.read_fds, [], [])
 
             if listen_fd in rlist:
-                print 'new server' 
-                print self.read_fds
                 client_fd, client_addr = listen_fd.accept()
                 if len(self.read_fds) > limit_connection_number:
-                    print 'read_fds length = ', len(self.read_fds)
+                    logger.error('reject client: ' + str(client_addr))
                     client_fd.close()
                     continue
                 try:
+                    logger.info('new client: ' + str(client_addr))
                     read_end, write_end = os.pipe()
                     self.read_fds.append(read_end)
                     fork_result = os.fork()
@@ -368,8 +359,8 @@ class FTPForkServer:
                     else:
                         os.close(write_end)
                 except Exception, e:
-                    print e
-                    print 'Fork failed'
+                    logger.error(e)
+                    logger.error('Fork failed')
                     
             for read_fd in rlist:
                 if read_fd == listen_fd: continue
@@ -390,6 +381,13 @@ def get_uid(username = 'www-data'):
         except: continue
         return int(uid)
 
+def get_logger(handler = logging.StreamHandler()):
+    logger = logging.getLogger()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.NOTSET)
+    return logger
 
 def main():
     #server = FTPThreadServer()
@@ -397,8 +395,15 @@ def main():
     server.serve_forever()
 
 if __name__ == '__main__':
-    import sys
-    #sys.stdout = open('/var/log/ftp.py.log', 'w')
     signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
+    logger = get_logger()
+    #logger = get_logger(logging.FileHandler('/var/log/ftp.py.log'))
+
+    try:
+        '''You can write your account_info in ftp.py.config'''
+        execfile('ftp.py.config')
+    except Exception, e:
+        logger.error(e)
 
     main()
