@@ -12,8 +12,9 @@ limit_connection_number = 3
 
 runas_user = 'www-data'
 
+default_home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
 account_info = {
-    'anonymous':{'pass':'', 'home_dir':'/tmp/'},
+    'anonymous':{'pass':'', 'home_dir':default_home_dir},
     } 
 
 class FTPConnection:
@@ -27,7 +28,7 @@ class FTPConnection:
         self.data_host = ''
         self.data_port = 0
         self.localhost = fd.getsockname()[0]
-        self.home_dir = '/tmp/'
+        self.home_dir = default_home_dir
         self.curr_dir = '/'
         self.running = True
         self.handler = dict(
@@ -127,13 +128,18 @@ class FTPConnection:
             remote += '/' + item
             local += '/' + item
         if remote == '': remote = '/'
+        logger.info(split_path)
+        logger.info('remote: %s  local: %s' % (remote, local))
         return remote, local
 
     # Command Handlers
     def handle_USER(self, arg):
         if arg in account_info:
             self.username = arg
-            self.send_msg(331, "Need password")
+            if self.username == 'anonymous':
+                self.send_msg(230, 'OK')
+            else:
+                self.send_msg(331, "Need password")
         else:
             self.send_msg(500, "Invalid User")
             self.running = False
