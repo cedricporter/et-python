@@ -391,14 +391,13 @@ def get_logger(handler = logging.StreamHandler()):
 
 def main():
     if os.name == 'posix':
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
         server = FTPForkServer()
     else:
         server = FTPThreadServer()
     server.serve_forever()
 
-if __name__ == '__main__':
-    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
+if __name__ == '__main__': 
     logger = get_logger()
     #logger = get_logger(logging.FileHandler('/var/log/ftp.py.log'))
 
