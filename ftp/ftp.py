@@ -3,10 +3,11 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time, sys, re, signal
+import socket, os, stat, threading, time, sys, re, signal, select
 
 host = '0.0.0.0'
 port = 21
+fork_number = 3
 
 runas_user = 'www-data'
 
@@ -323,27 +324,58 @@ class FTPThreadServer:
 
 class FTPForkServer:
     '''FTP Fork Server, use process per user'''
+    def child_main(self, client_fd, client_addr, write_end):
+        '''never return'''
+        for fd in self.read_fds:
+            os.close(fd)
+        self.read_fds = []
+
+        uid = get_uid(runas_user)
+        os.setgid(uid)
+        os.setuid(uid)
+        try:
+            handler = FTPConnection(client_fd, client_addr)
+            handler.start()
+        except: pass
+
+        os.write(write_end, str(write_end))
+        sys.exit()
+
     def serve_forever(self):
         listen_fd = socket.socket()
         listen_fd.bind((host, port))
         listen_fd.listen(512)
+        self.read_fds = [listen_fd]
         while True:
-            print 'new server'
-            client_fd, client_addr = listen_fd.accept()
-            try:
-                fork_result = os.fork()
-                if fork_result == 0: # child process
-                    listen_fd.close()
-                    uid = get_uid(runas_user)
-                    os.setgid(uid)
-                    os.setuid(uid)
-                    try:
-                        handler = FTPConnection(client_fd, client_addr)
-                        handler.start()
-                    except: pass
-                    break
-            except:
-                print 'Fork failed'
+            rlist, wlist, xlist = select.select(self.read_fds, [], [])
+
+            if listen_fd in rlist:
+                print 'new server' 
+                client_fd, client_addr = listen_fd.accept()
+                if len(self.read_fds) > fork_number:
+                    client_fd.close()
+                    continue
+                try:
+                    read_end, write_end = os.pipe()
+                    self.read_fds.append(read_end)
+                    fork_result = os.fork()
+                    if fork_result == 0: # child process
+                        listen_fd.close()
+                        self.read_fds.remove(listen_fd)
+                        self.child_main(client_fd, client_addr, write_end) # never return
+                    else:
+                        os.close(write_end)
+                except Exception, e:
+                    print e
+                    print 'Fork failed'
+            if listen_fd not in rlist and len(rlist) > 1:
+                for read_fd in rlist:
+                    if read_fd == listen_fd: continue
+                    data = os.read(read_fd, 32)
+                    self.read_fds.remove(read_fd)
+                    os.close(read_fd)
+
+                        
 
 def get_uid(username = 'www-data'):
     '''get uid by username, I don't know whether there's a
