@@ -351,8 +351,10 @@ class FTPForkServer:
 
             if listen_fd in rlist:
                 print 'new server' 
+                print self.read_fds
                 client_fd, client_addr = listen_fd.accept()
                 if len(self.read_fds) > fork_number:
+                    print 'read_fds length = ', len(self.read_fds)
                     client_fd.close()
                     continue
                 try:
@@ -368,12 +370,12 @@ class FTPForkServer:
                 except Exception, e:
                     print e
                     print 'Fork failed'
-            if listen_fd not in rlist and len(rlist) > 1:
-                for read_fd in rlist:
-                    if read_fd == listen_fd: continue
-                    data = os.read(read_fd, 32)
-                    self.read_fds.remove(read_fd)
-                    os.close(read_fd)
+                    
+            for read_fd in rlist:
+                if read_fd == listen_fd: continue
+                data = os.read(read_fd, 32)
+                self.read_fds.remove(read_fd)
+                os.close(read_fd)
 
                         
 
