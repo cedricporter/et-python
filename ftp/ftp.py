@@ -390,8 +390,10 @@ def get_logger(handler = logging.StreamHandler()):
     return logger
 
 def main():
-    #server = FTPThreadServer()
-    server = FTPForkServer()
+    if os.name == 'posix':
+        server = FTPForkServer()
+    else:
+        server = FTPThreadServer()
     server.serve_forever()
 
 if __name__ == '__main__':
