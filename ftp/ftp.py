@@ -7,7 +7,7 @@ import socket, os, stat, threading, time, sys, re, signal, select
 
 host = '0.0.0.0'
 port = 21
-fork_number = 3
+limit_connection_number = 3
 
 runas_user = 'www-data'
 
@@ -353,7 +353,7 @@ class FTPForkServer:
                 print 'new server' 
                 print self.read_fds
                 client_fd, client_addr = listen_fd.accept()
-                if len(self.read_fds) > fork_number:
+                if len(self.read_fds) > limit_connection_number:
                     print 'read_fds length = ', len(self.read_fds)
                     client_fd.close()
                     continue
