@@ -12,3 +12,9 @@ port_redirect/.ropeproject/globalnames
 port_redirect/.ropeproject/history
 port_redirect/.ropeproject/objectdb
 ftp/ftp.py.config
+fork_test/.ropeproject/config.py
+fork_test/.ropeproject/globalnames
+fork_test/.ropeproject/history
+fork_test/.ropeproject/objectdb
+web server/TServer/TServer
+ftp/ftp.py.log
