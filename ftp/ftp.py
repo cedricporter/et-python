@@ -471,6 +471,13 @@ def usage():
     -p listen port
     -o output log to stdout, by default, it outputs to a log file.
     -t thread mode, fork model by default
+
+Waring:
+    The Thread Mode is not complete.
+
+Author:
+    Hua Liang [ Stupid ET ] <et@everet.org>
+    http://EverET.org 
 ''' % os.path.basename(sys.argv[0])
 
 def param_handler(opts):
