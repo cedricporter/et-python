@@ -3,7 +3,7 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time
+import socket, os, stat, threading, time, struct
 import sys, re, signal, select, logging, logging.handlers
 
 host = '0.0.0.0'
@@ -320,6 +320,22 @@ class FTPThreadServer:
             handler = FTPThread(client_fd, client_addr)
             handler.start()
 
+def set_timeout(sock, timeout):
+    if not sock: return False
+    try:
+        if timeout == None:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('ll', 0, 0))
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack('ll', 0, 0))
+        else:
+            s = long(timeout)
+            us = long((timeout - s) * 1000000)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('ll', s, us)) 
+            return True
+    except Exception, e:
+        logger.error(e) 
+        return False
+
+
 class FTPForkServer:
     '''FTP Fork Server, use process per user'''
     def child_main(self, client_fd, client_addr, write_end):
@@ -340,7 +356,8 @@ class FTPForkServer:
         sys.exit()
 
     def serve_forever(self):
-        listen_fd = socket.socket()
+        listen_fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listen_fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listen_fd.bind((host, port))
         listen_fd.listen(512)
         self.read_fds = [listen_fd]
@@ -355,6 +372,7 @@ class FTPForkServer:
                     continue
                 try:
                     logger.info('new client: ' + str(client_addr))
+                    set_timeout(client_addr, 60)
                     read_end, write_end = os.pipe()
                     self.read_fds.append(read_end)
                     fork_result = os.fork()

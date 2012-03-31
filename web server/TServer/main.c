@@ -2,9 +2,9 @@
  * @file    main.c
  * @author  Hua Liang <et@everet.org>
  * @Website http://EverET.org
- * @date    Wed Mar 28 16:40:58 2012
+ * @date    Wed Mar 28 18:38:35 2012
  * 
- * @brief   TServer is simple but efficient web server.
+ * @brief   TServer
  * 
  * 
  */
@@ -16,6 +16,6 @@
 int main(int argc, char *argv[])
 {
 
-     
+
      return 0;
 }
