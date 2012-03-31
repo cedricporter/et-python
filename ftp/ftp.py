@@ -14,6 +14,7 @@ default_home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/
 logfile = '/var/log/ftp.py.log' if os.name == 'posix' else default_home_dir + 'ftp.py.log'
 
 runas_user = 'www-data'
+global_options = {'run_mode':'fork'}
 
 # current working directory
 account_info = {
@@ -321,6 +322,7 @@ class FTPThreadServer:
     '''FTP Server which is using thread'''
     def serve_forever(self):
         listen_fd = socket.socket()
+        listen_fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listen_fd.bind((host, port))
         listen_fd.listen(512)
         while True:
@@ -424,22 +426,6 @@ def get_logger(handler = logging.StreamHandler()):
     logger.setLevel(logging.NOTSET)
     return logger
 
-def main():
-    if os.name == 'posix':
-        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-        server = FTPForkServer()
-    else:
-        server = FTPThreadServer()
-    server.serve_forever()
-
-def usage():
-    print '''usage: %s [-d] [-h] [-p port] [-o]
-    -d become a demon
-    -h help
-    -p listen port
-    -o output log to stdout, by default, it outputs to a log file.
-''' % os.path.basename(sys.argv[0])
-
 def demoniaze(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     '''becomes a demon'''
     try:
@@ -467,8 +453,28 @@ def demoniaze(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     os.dup2(so.fileno(), sys.stdout.fileno()) # 1
     os.dup2(se.fileno(), sys.stderr.fileno()) # 2
 
+def serve_forever():
+    global global_options
+    print global_options
+    if global_options['run_mode'] == 'fork':
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        server = FTPForkServer()
+    else:
+        server = FTPThreadServer()
+        
+    server.serve_forever()
+
+def usage():
+    print '''usage: %s [-d] [-h] [-p port] [-o] [-t]
+    -d become a demon
+    -h help
+    -p listen port
+    -o output log to stdout, by default, it outputs to a log file.
+    -t thread mode, fork model by default
+''' % os.path.basename(sys.argv[0])
+
 def param_handler(opts):
-    global port, logger
+    global port, logger, global_options
     demon = False
     logger = get_logger(logging.FileHandler(logfile))
     for o, a in opts:
@@ -483,16 +489,22 @@ def param_handler(opts):
         elif o == '-o': 
             logger = get_logger()
         elif o == '-p':
-            try:
-                port = int(a)
+            try: port = int(a)
             except Exception, e:
                 usage()
                 sys.exit(0)
+        elif o == '-t':
+            global_options['run_mode'] = 'thread'
+
+    if os.name != 'posix' and global_options['run_mode'] == 'fork':
+        print "You can NOT run fork mode in a non posix os,\
+ please use -t options to run in thread mode"
+        sys.exit(-1)
     if demon: demoniaze()
 
 if __name__ == '__main__': 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hdp:l')
+        opts, args = getopt.getopt(sys.argv[1:], 'hdp:ot')
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -503,4 +515,5 @@ if __name__ == '__main__':
     try: execfile('ftp.py.config')
     except Exception, e: logger.error(e) 
 
-    main()
+    serve_forever()
+
