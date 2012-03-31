@@ -3,18 +3,19 @@
 # email:   et@everet.org
 # website: http://EverET.org
 #
-import socket, os, stat, threading, time, struct
+import socket, os, stat, threading, time, struct, getopt
 import sys, re, signal, select, logging, logging.handlers
 
 host = '0.0.0.0'
 port = 21
 limit_connection_number = 5     # max client number
 timeout = 60 * 3                # timeout in second
+default_home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
+logfile = '/var/log/ftp.py.log' if os.name == 'posix' else default_home_dir + 'ftp.py.log'
 
 runas_user = 'www-data'
 
 # current working directory
-default_home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
 account_info = {
     'anonymous':{'pass':'', 'home_dir':default_home_dir},
     } 
@@ -431,9 +432,72 @@ def main():
         server = FTPThreadServer()
     server.serve_forever()
 
+def usage():
+    print '''usage: %s [-d] [-h] [-p port] [-o]
+    -d become a demon
+    -h help
+    -p listen port
+    -o output log to stdout, by default, it outputs to a log file.
+''' % os.path.basename(sys.argv[0])
+
+def demoniaze(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+    '''becomes a demon'''
+    try:
+        pid = os.fork()
+        if pid > 0: sys.exit(0)
+    except OSError, e:
+        sys.stderr.write("fork #1 failed\n")
+        sys.exit(1)
+
+    os.umask(0)
+    os.setsid()
+
+    try:
+        pid = os.fork()
+        if pid > 0: sys.exit(0)
+    except OSError, e:
+        sys.stderr.write("fork #2 failed\n")
+        sys.exit(1)
+
+    for f in sys.stdout, sys.stderr: f.flush()
+    si = file(stdin, 'r')
+    so = file(stdout, 'a+')
+    se = file(stderr, 'a+', 0)
+    os.dup2(si.fileno(), sys.stdin.fileno())  # 0
+    os.dup2(so.fileno(), sys.stdout.fileno()) # 1
+    os.dup2(se.fileno(), sys.stderr.fileno()) # 2
+
+def param_handler(opts):
+    global port, logger
+    demon = False
+    logger = get_logger(logging.FileHandler(logfile))
+    for o, a in opts:
+        if o == '-h':
+            usage()
+            sys.exit(0)
+        elif o == '-d':
+            if not os.name == 'posix':
+                print 'Only support the os with posix specifications.'
+                sys.exit(-1)
+            demon = True
+        elif o == '-o': 
+            logger = get_logger()
+        elif o == '-p':
+            try:
+                port = int(a)
+            except Exception, e:
+                usage()
+                sys.exit(0)
+    if demon: demoniaze()
+
 if __name__ == '__main__': 
-    logger = get_logger()
-    #logger = get_logger(logging.FileHandler('/var/log/ftp.py.log'))
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hdp:l')
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+
+    param_handler(opts)
 
     '''You can write your account_info in ftp.py.config'''
     try: execfile('ftp.py.config')
