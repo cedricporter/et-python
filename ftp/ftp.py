@@ -9,6 +9,7 @@ import sys, re, signal, select, logging, logging.handlers
 host = '0.0.0.0'
 port = 21
 limit_connection_number = 3
+timeout = 30
 
 runas_user = 'www-data'
 
@@ -57,10 +58,13 @@ class FTPConnection:
                     logger.error(e)
                     self.send_msg(500, 'Permission denied')
             self.say_bye()
-            self.fd.close()
         except Exception, e:
             self.running = False
             logger.error(e)
+        finally:
+            self.fd.close()
+
+        logger.info("FTP connnection done.")
 
         return True
 
@@ -76,7 +80,7 @@ class FTPConnection:
             success, buf, command, arg = True, '', '', ''
             while True:
                 data = self.fd.recv(4096)
-                if not data:
+                if data <= 0:
                     self.running = False
                     break
                 buf += data
@@ -350,9 +354,10 @@ class FTPForkServer:
         try:
             handler = FTPConnection(client_fd, client_addr)
             handler.start()
-        except: pass
+            os.write(write_end, str(write_end))
+        except Exception, e:
+            logger.error(e)
 
-        os.write(write_end, str(write_end))
         sys.exit()
 
     def serve_forever(self):
@@ -372,7 +377,7 @@ class FTPForkServer:
                     continue
                 try:
                     logger.info('new client: ' + str(client_addr))
-                    set_timeout(client_addr, 60)
+                    set_timeout(client_fd, timeout)
                     read_end, write_end = os.pipe()
                     self.read_fds.append(read_end)
                     fork_result = os.fork()
