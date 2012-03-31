@@ -8,8 +8,8 @@ import sys, re, signal, select, logging, logging.handlers
 
 host = '0.0.0.0'
 port = 21
-limit_connection_number = 3
-timeout = 30
+limit_connection_number = 5
+timeout = 60 * 3
 
 runas_user = 'www-data'
 
@@ -80,14 +80,17 @@ class FTPConnection:
             success, buf, command, arg = True, '', '', ''
             while True:
                 data = self.fd.recv(4096)
-                if data <= 0:
+                if not data or data <= 0:
                     self.running = False
+                    success = False
                     break
                 buf += data
                 if buf[-2:] == '\r\n': break
             split = buf.find(' ')
             command, arg = (buf[:split], buf[split + 1:].strip()) if split != -1 else (buf.strip(), '')
-        except:
+        except Exception, e:
+            logger.error(e)
+            self.running = False
             success = False
 
         return success, command, arg
@@ -354,9 +357,10 @@ class FTPForkServer:
         try:
             handler = FTPConnection(client_fd, client_addr)
             handler.start()
-            os.write(write_end, str(write_end))
         except Exception, e:
             logger.error(e)
+
+        os.write(write_end, str(write_end))
 
         sys.exit()
 
