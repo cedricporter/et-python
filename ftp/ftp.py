@@ -8,11 +8,12 @@ import sys, re, signal, select, logging, logging.handlers
 
 host = '0.0.0.0'
 port = 21
-limit_connection_number = 5
-timeout = 60 * 3
+limit_connection_number = 5     # max client number
+timeout = 60 * 3                # timeout in second
 
 runas_user = 'www-data'
 
+# current working directory
 default_home_dir = os.path.normpath(os.path.abspath(os.curdir)).replace('\\', '/')
 account_info = {
     'anonymous':{'pass':'', 'home_dir':default_home_dir},
@@ -434,10 +435,8 @@ if __name__ == '__main__':
     logger = get_logger()
     #logger = get_logger(logging.FileHandler('/var/log/ftp.py.log'))
 
-    try:
-        '''You can write your account_info in ftp.py.config'''
-        execfile('ftp.py.config')
-    except Exception, e:
-        logger.error(e)
+    '''You can write your account_info in ftp.py.config'''
+    try: execfile('ftp.py.config')
+    except Exception, e: logger.error(e) 
 
     main()
