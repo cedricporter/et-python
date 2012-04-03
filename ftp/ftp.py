@@ -426,7 +426,7 @@ def get_logger(handler = logging.StreamHandler()):
     logger.setLevel(logging.NOTSET)
     return logger
 
-def demoniaze(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
     '''becomes a demon'''
     try:
         pid = os.fork()
@@ -507,7 +507,7 @@ def param_handler(opts):
         print "You can NOT run fork mode in a non posix os,\
  please use -t options to run in thread mode"
         sys.exit(-1)
-    if demon: demoniaze()
+    if demon: daemonize()
 
 if __name__ == '__main__': 
     try:
