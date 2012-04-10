@@ -59,11 +59,13 @@ class FTPConnection:
                     self.handler[command](arg)
                 except OSError, e:
                     logger.error(e)
+                    logger.error("in start")
                     self.send_msg(500, 'Permission denied')
             self.say_bye()
         except Exception, e:
             self.running = False
             logger.error(e)
+            logger.error("in start")
         finally:
             self.fd.close()
 
@@ -93,6 +95,7 @@ class FTPConnection:
             command, arg = (buf[:split], buf[split + 1:].strip()) if split != -1 else (buf.strip(), '')
         except Exception, e:
             logger.error(e)
+            logger.error("in recv")
             self.running = False
             success = False
 
@@ -181,6 +184,7 @@ class FTPConnection:
             self.send_msg(250, "OK")
         except Exception, e:
             logger.error(e)
+            logger.error("in cwd")
             self.send_msg(500, "Change directory failed!")
     def handle_SIZE(self, arg):
         remote, local = self.parse_path(self.curr_dir)
@@ -277,6 +281,7 @@ class FTPConnection:
                     (','.join(ip.split('.')), (port >> 8 & 0xff), (port & 0xff)))
         except Exception, e:
             logger.error(e)
+            logger.error("in pasv")
             self.send_msg(500, 'passive mode failed')
     def handle_PORT(self, arg):
         try:
@@ -331,21 +336,6 @@ class FTPThreadServer:
             handler = FTPThread(client_fd, client_addr)
             handler.start()
 
-def set_timeout(sock, timeout):
-    if not sock: return False
-    try:
-        if timeout == None:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('ll', 0, 0))
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack('ll', 0, 0))
-        else:
-            s = long(timeout)
-            us = long((timeout - s) * 1000000)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('ll', s, us)) 
-            return True
-    except Exception, e:
-        logger.error(e) 
-        return False
-
 
 class FTPForkServer:
     '''FTP Fork Server, use process per user'''
@@ -363,6 +353,7 @@ class FTPForkServer:
             handler.start()
         except Exception, e:
             logger.error(e)
+            logger.error("in child_main")
 
         os.write(write_end, str(write_end))
 
@@ -385,7 +376,6 @@ class FTPForkServer:
                     continue
                 try:
                     logger.info('new client: ' + str(client_addr))
-                    set_timeout(client_fd, timeout)
                     read_end, write_end = os.pipe()
                     self.read_fds.append(read_end)
                     fork_result = os.fork()
@@ -427,7 +417,7 @@ def get_logger(handler = logging.StreamHandler()):
     return logger
 
 def daemonize(stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-    '''becomes a demon'''
+    '''becomes a daemon'''
     try:
         pid = os.fork()
         if pid > 0: sys.exit(0)
@@ -466,7 +456,7 @@ def serve_forever():
 
 def usage():
     print '''usage: %s [-d] [-h] [-p port] [-o] [-t]
-    -d become a demon
+    -d become a daemon
     -h help
     -p listen port
     -o output log to stdout, by default, it outputs to a log file.
@@ -482,7 +472,7 @@ Author:
 
 def param_handler(opts):
     global port, logger, global_options
-    demon = False
+    be_daemon = False
     logger = get_logger(logging.FileHandler(logfile))
     for o, a in opts:
         if o == '-h':
@@ -492,7 +482,7 @@ def param_handler(opts):
             if not os.name == 'posix':
                 print 'Only support the os with posix specifications.'
                 sys.exit(-1)
-            demon = True
+            be_daemon = True
         elif o == '-o': 
             logger = get_logger()
         elif o == '-p':
@@ -507,7 +497,7 @@ def param_handler(opts):
         print "You can NOT run fork mode in a non posix os,\
  please use -t options to run in thread mode"
         sys.exit(-1)
-    if demon: daemonize()
+    if be_daemon: daemonize()
 
 if __name__ == '__main__': 
     try:
@@ -517,6 +507,8 @@ if __name__ == '__main__':
         sys.exit(2)
 
     param_handler(opts)
+
+    socket.setdefaulttimeout(timeout)
 
     '''You can write your account_info in ftp.py.config'''
     try: execfile('ftp.py.config')
