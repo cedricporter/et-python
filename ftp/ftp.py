@@ -18,8 +18,14 @@ global_options = {'run_mode':'fork'}
 
 # current working directory
 account_info = {
-    'anonymous':{'pass':'', 'home_dir':default_home_dir},
+    'anonymous':{'pass':'', 'home_dir':default_home_dir, 'runas_user':runas_user},
     } 
+
+def runas(username):
+    if os.name != 'posix': return
+    uid = get_uid(username)
+    os.setgid(uid)
+    os.setuid(uid)
 
 class FTPConnection:
     '''You can add handle func by startswith handle_ prefix.
@@ -159,6 +165,11 @@ class FTPConnection:
     def handle_PASS(self, arg):
         if arg == account_info[self.username]['pass']: 
             self.home_dir = account_info[self.username]['home_dir']
+            if account_info[self.username].has_key('runas_user'):
+                user = account_info[self.username]['runas_user']
+            else:
+                user = 'www-data'
+            runas(user) 
             if os.path.isdir(self.home_dir):
                 self.send_msg(230, "OK")
                 return
@@ -345,9 +356,6 @@ class FTPForkServer:
             os.close(fd)
         self.read_fds = []
 
-        uid = get_uid(runas_user)
-        os.setgid(uid)
-        os.setuid(uid)
         try:
             handler = FTPConnection(client_fd, client_addr)
             handler.start()
