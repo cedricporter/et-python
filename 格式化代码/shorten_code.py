@@ -8,4 +8,4 @@ int main()
 }
 '''
 
-print ''.join([l + '\n' if len(l) and l[0] == '#' else l.strip() for l in a.splitlines()])
+print ''.join([l + '\n' if l.startswith('#') else l.strip().split(' ') for l in a.splitlines()])
