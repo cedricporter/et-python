@@ -22,7 +22,7 @@ class mainhandler:
             try:
                 filepath = x.myfile.filename.replace('\\','/') 
                 filename = filepath.split('/')[-1] 
-                filename = hashlib.md5(filename).hexdigest() + filename
+                filename = hashlib.md5(str(time.time())).hexdigest() + filename[filename.find('.'):]
                 fout = open('static/images/'+ filename,'w') 
                 fout.write(x.myfile.file.read()) 
                 fout.close() 
@@ -30,7 +30,7 @@ class mainhandler:
                 pathname = 'static/images/' + filename 
                 outfilename = filename + '.html'
                 #charimg.make_save_char_img(pathname, 'static/' + outfilename) 
-                charimg.save_to_file('static/' + outfilename, charimg.make_char_image('static/images/' + filename).replace('</body>', '<a href="images/' + filename + '">old img</a></body>'))
+                charimg.save_to_file('static/' + outfilename, charimg.make_char_image('static/images/' + filename)) #.replace('</body>', '<a href="images/' + filename + '">old img</a></body>'))
             except Exception, e:
                 print traceback.print_exc() 
                 return 'cannot identify image file!' + str(e)

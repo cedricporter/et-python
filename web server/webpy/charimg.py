@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# author:  Hua Liang [ Stupid ET ]
+# email:   et@everet.org
+# website: http://EverET.org
+#
 import Image
 
 color = 'MNHQ$OC?7>!:-;.'
@@ -27,7 +32,7 @@ def make_char_img(img):
     width, height = img.size
     for h in xrange(height):
         for w in xrange(width):
-            pic_str += color[int(pix[w, h]) * 14 / 255] * 2
+            pic_str += color[int(pix[w, h]) * 14 / 255] 
         pic_str += '\n'
     return pic_str
 
