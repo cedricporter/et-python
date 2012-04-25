@@ -12,7 +12,7 @@ def to_html(func):
             <html>
               <head>
                 <style type="text/css">
-                  body {font-family:Monospace; font-size:5px;}
+                  body {font-family:Monospace; font-size:5px; font-weight:bold;}
                 </style>
               </head>
             <body> '''
