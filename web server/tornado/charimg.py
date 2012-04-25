@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# author:  Hua Liang [ Stupid ET ]
+# email:   et@everet.org
+# website: http://EverET.org
+#
 import Image
 
 color = 'MNHQ$OC?7>!:-;.'

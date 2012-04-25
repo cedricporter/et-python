@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# author:  Hua Liang [ Stupid ET ]
+# email:   et@everet.org
+# website: http://EverET.org
+#
 import web
 import time, traceback, os, hashlib
 import charimg
@@ -10,7 +15,7 @@ class mainhandler:
         return '''<html><body>Please use chrome or firefox...<br/><form method="post" action="" enctype="multipart/form-data">
     <input type="file" name="myfile" value="" />
     <button type="submit">Upload</button>
-</form></body></html'''
+</form><br/><br/><br/><hr/><a href="https://github.com/cedricporter/et-python/tree/master/web%20server/webpy">Source Code</a> CopyLeft: <a href="http://EverET.org">EverET.org</a></body></html>'''
     def POST(self):
         x = web.input(myfile={})
         if 'myfile' in x: 
