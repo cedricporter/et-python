@@ -13,7 +13,7 @@ app = web.application(urls, globals())
 class mainhandler:
     def GET(self):
         return '''<html><body>Please use chrome or firefox...<br/><form method="post" action="" enctype="multipart/form-data">
-    <input type="file" name="myfile" value="" />
+    Select a picture.<br/><input type="file" name="myfile" value="" />
     <button type="submit">Upload</button>
 </form><br/><br/><br/><hr/><a href="https://github.com/cedricporter/et-python/tree/master/web%20server/webpy">Source Code</a> CopyLeft: <a href="http://EverET.org">EverET.org</a></body></html>'''
     def POST(self):

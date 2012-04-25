@@ -6,7 +6,7 @@ import charimg
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write('''<html><body>Please use chrome or firefox...<br/><form method="post" action="" enctype="multipart/form-data">
-    <input type="file" name="upload" value="" />
+    <input type="file" name="upload" value="" >Select a picture</input>
     <button type="submit">Upload</button>
 </form></body></html''')
     def post(self):
