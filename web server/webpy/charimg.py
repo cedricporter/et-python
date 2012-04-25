@@ -44,9 +44,9 @@ def preprocess(img_name):
     return img
 
 def make_save_char_img(filename, outfilename):
-    save_to_file(make_char_image(filename), outfilename)
+    save_to_file(outfilename, make_char_image(filename))
 
-def save_to_file(pic_str, filename):
+def save_to_file(filename, pic_str):
     outfile = open(filename, 'w')
     outfile.write(pic_str)
     outfile.close()
