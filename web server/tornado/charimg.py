@@ -12,7 +12,7 @@ def to_html(func):
             <html>
               <head>
                 <style type="text/css">
-                  body {font-family:Monospace; font-size:5px;}
+                  body {font-family:Monospace; font-size:5px; font-weight:bold;}
                 </style>
               </head>
             <body> '''
@@ -32,7 +32,7 @@ def make_char_img(img):
     width, height = img.size
     for h in xrange(height):
         for w in xrange(width):
-            pic_str += color[int(pix[w, h]) * 14 / 255] * 2
+            pic_str += color[int(pix[w, h]) * 14 / 255] 
         pic_str += '\n'
     return pic_str
 
@@ -49,9 +49,9 @@ def preprocess(img_name):
     return img
 
 def make_save_char_img(filename, outfilename):
-    save_to_file(make_char_image(filename), outfilename)
+    save_to_file(outfilename, make_char_image(filename))
 
-def save_to_file(pic_str, filename):
+def save_to_file(filename, pic_str):
     outfile = open(filename, 'w')
     outfile.write(pic_str)
     outfile.close()
@@ -61,6 +61,20 @@ def make_char_image(filename):
     pic_str = make_char_img(img) 
     return pic_str
 
+class CharImg:
+    def __init__(self):
+        self.handlers = {'load':{}, 'preprocess':{}, 'process':{}, 'pixel_process':{}}
+        self.data = {'img':None}
+    def load_img(self, filename):
+        self.data['img'] = Image.open(filename)
+        return [func(self.data['img']) for func in self.handlers['load']]
+    def preprocess(self):
+        return [func(self.data['img']) for func in self.handlers['preprocess']]
+    def pixel_process(self):
+        return [func(self.data['img']) for func in self.handlers['pixel_process']]
+    def process(self):
+        return [func(self.data['img']) for func in self.handlers['process']]
+    
 def main():
     pass
 

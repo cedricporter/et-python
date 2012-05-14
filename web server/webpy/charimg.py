@@ -61,6 +61,20 @@ def make_char_image(filename):
     pic_str = make_char_img(img) 
     return pic_str
 
+class CharImg:
+    def __init__(self):
+        self.handlers = {'load':{}, 'preprocess':{}, 'process':{}, 'pixel_process':{}}
+        self.data = {'img':None}
+    def load_img(self, filename):
+        self.data['img'] = Image.open(filename)
+        return [func(self.data['img']) for func in self.handlers['load']]
+    def preprocess(self):
+        return [func(self.data['img']) for func in self.handlers['preprocess']]
+    def pixel_process(self):
+        return [func(self.data['img']) for func in self.handlers['pixel_process']]
+    def process(self):
+        return [func(self.data['img']) for func in self.handlers['process']]
+    
 def main():
     pass
 
