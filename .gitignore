@@ -66,3 +66,6 @@ web server/webpy/.ropeproject/globalnames
 web server/webpy/.ropeproject/history
 web server/webpy/.ropeproject/objectdb
 web server/webpy/static/*
+compilers/simple-cal/.ropeproject/config.py
+.project
+.pydevproject
