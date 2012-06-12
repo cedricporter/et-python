@@ -2,6 +2,7 @@
 *~
 *.pyc
 ./ropeproject/
+ropeproject/
 /image/cell/test.bmpftp/.ropeproject/objectdb
 ftp/.ropeproject/history
 ftp/.ropeproject/config.py
@@ -69,3 +70,15 @@ web server/webpy/static/*
 compilers/simple-cal/.ropeproject/config.py
 .project
 .pydevproject
+compilers/simple-cal/.ropeproject/globalnames
+compilers/simple-cal/.ropeproject/globalnames
+compilers/simple-cal/.ropeproject/history
+compilers/simple-cal/.ropeproject/objectdb
+cookbook/.ropeproject/config.py
+cookbook/.ropeproject/globalnames
+cookbook/.ropeproject/history
+cookbook/.ropeproject/objectdb
+web server/test1/.ropeproject/config.py
+web server/test1/.ropeproject/globalnames
+web server/test1/.ropeproject/history
+web server/test1/.ropeproject/objectdb

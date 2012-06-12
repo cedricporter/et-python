@@ -19,7 +19,7 @@ class PipeThread(threading.Thread):
     def run(self):
         while True:
             try:
-                data = self.source.recv(1024)
+                data = self.source.recv(4096)
                 log(data)
                 if not data: break
                 self.target.send(data)
