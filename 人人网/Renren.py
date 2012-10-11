@@ -18,6 +18,18 @@ import urllib
 import urllib2
 import shelve
 
+import logging, logging.handlers 
+
+def get_logger(handler = logging.StreamHandler()):
+    import logging
+    logger = logging.getLogger()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.NOTSET)
+    return logger
+
+logger = get_logger()
 
 # 提供给输出的互斥对象
 GlobalPrintMutex = threading.Lock()
@@ -142,6 +154,7 @@ class RenrenRequester:
             return False  
         
         rawHtml = result.read()        
+
         # 获取用户id
         useridPattern = re.compile(r'user : {"id" : (\d+?)}')
         self.userid = useridPattern.search(rawHtml).group(1)              
@@ -155,6 +168,16 @@ class RenrenRequester:
             token = match('\d+', rawHtml)
             if token is None: return False
         self.requestToken = token.group()  
+
+        # 查找_rtk
+        pos = rawHtml.find("get_check_x:'")
+        if pos == -1: return False        
+        self._rtk = rawHtml[pos + 13:pos + 13 +8]
+
+        logger.info(self.userid)
+        logger.info(self.requestToken)
+        logger.info(self._rtk)
+        
         self.__isLogin = True      
         return self.__isLogin
     
@@ -182,14 +205,17 @@ class RenrenPostMsg:
     RenrenPostMsg
         发布人人状态
     '''
-    newStatusUrl = 'http://status.renren.com/doing/updateNew.do'
+    newStatusUrl = 'http://shell.renren.com/322542952/status'
+    #'http://status.renren.com/doing/updateNew.do'
     
     def Handle(self, requester, param):
-        requestToken, msg = param
+        requestToken, userid, _rtk, msg = param
 
         statusData = {'content':msg,
-                    'isAtHome':'1',
-                    'requestToken':requestToken}
+                      'hostid':userid,
+                    'requestToken':requestToken,
+                      '_rtk':_rtk,
+                      'channel':'renren'}
         postStatusData = urlencode(statusData)
         
         requester.Request(self.newStatusUrl, statusData)
@@ -484,12 +510,13 @@ class SuperRenren:
         if self.requester.Create(username, password):
             self.userid = self.requester.userid
             self.requestToken = self.requester.requestToken
+            self._rtk = self.requester._rtk
             return True
         return False
     # 发送个人状态
     def PostMsg(self, msg):
         poster = RenrenPostMsg()
-        poster.Handle(self.requester, (self.requestToken, msg))
+        poster.Handle(self.requester, (self.requestToken, self.userid, self._rtk, msg))
     # 发送小组状态        
     def PostGroupMsg(self, groupId, msg):
         poster = RenrenPostGroupMsg()
