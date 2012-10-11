@@ -17,10 +17,10 @@ def main():
 
     renren = SuperRenren()
     if renren.Create(username, password):
-        renren.PostMsg(time.asctime())
-        #renren.PostGroupMsg('387635422', '%s' % time.asctime())
-        #renren.DownloadAlbum('333982368', 'sss') 
-        # renren.DownloadAlbum('285201751', 'cai')
+        # renren.PostMsg(time.asctime())
+        # renren.PostGroupMsg('387635422', '%s' % time.asctime())
+        # renren.DownloadAlbum('333982368', 'sss') 
+        renren.DownloadAlbum('285201751', 'cai')
         # renren.DownloadAllFriendsAlbums()
     
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ import time
 import urllib
 import urllib2
 import shelve
+from pprint import pprint
 
 import logging, logging.handlers 
 
@@ -153,6 +154,7 @@ class RenrenRequester:
         if not (result.geturl() == 'http://www.renren.com/home' or 'http://guide.renren.com/guide'):
             return False  
         
+        print result.geturl()
         rawHtml = result.read()        
 
         # 获取用户id
@@ -174,9 +176,8 @@ class RenrenRequester:
         if pos == -1: return False        
         self._rtk = rawHtml[pos + 13:pos + 13 +8]
 
-        logger.info(self.userid)
-        logger.info(self.requestToken)
-        logger.info(self._rtk)
+        logger.info('Login renren.com successfully.')
+        logger.info("userid: %s, token: %s, rtk: %s" % (self.userid, self.requestToken, self._rtk))
         
         self.__isLogin = True      
         return self.__isLogin
@@ -255,6 +256,64 @@ class RenrenFriendList:
         
         return friendIdList        
     
+class RenrenAlbumDownloader2012:
+
+    def Handler(self, requester, param):
+        self.requester = requester    
+        userid, path = param
+        self.__DownloadOneAlbum(userid, path)
+        
+    def __GetPeopleNameFromHtml(self, rawHtml):
+        '''解析html获取人名'''
+        peopleNamePattern = re.compile(r'<h2>(.*?)<span>')
+        # 取得人名
+        peopleName = peopleNamePattern.search(rawHtml).group(1).strip()
+        return peopleName
+
+    def __GetAlbumsNameFromHtml(self, rawHtml):
+        '''获取相册名字以及地址
+
+        返回元组列表（相册名，地址）'''
+        albumUrlPattern = re.compile(r'<a href="(.*?)" stats="album_album"><img.*?/>(.*?)</a>')
+
+        albums = []
+        # 把相册路径定向到排序页面，就可以在那个页面获得该相册下所有的相片的id
+        for album_url, album_name in albumUrlPattern.findall(rawHtml):
+            logger.info("album_url: %s  album_name: %s" % (album_url, album_name))
+            albums.append((album_name.strip(), album_url))
+        return albums
+    
+    def __DownloadOneAlbum(self, userid, path): 
+        if os.path.exists(path.decode('utf-8')) == False:
+            os.mkdir(path.decode('utf-8'))        
+        
+        albumsUrl = 'http://www.renren.com/profile.do?id=%s&v=photo_ajax&undefined' % userid                   
+
+        # 打开相册首页，以获取每个相册的地址以及名字
+        result = self.requester.Request(albumsUrl)            
+        rawHtml = result.read()
+
+        # 取得人名
+        peopleName = self.__GetPeopleNameFromHtml(rawHtml).strip()
+        albums = self.__GetAlbumsNameFromHtml(rawHtml)
+
+        logger.info(peopleName)
+        logger.info(albums)
+
+        # 开始进入相册下载            
+        for album_name, album_url in albums:
+            logger.info("album_name: %s  album_url: %s" % (album_name, album_url))
+            result = self.requester.Request(album_url)            
+            rawHtml = result.read()
+            print rawHtml
+
+            
+            """<img alt="" class="loading" data-src="(.*?)" src=".*?" />"""
+            break
+
+            
+
+
     
 class RenrenAlbumDownloader:
     '''
@@ -281,7 +340,8 @@ class RenrenAlbumDownloader:
         albums = []
         # 把相册路径定向到排序页面，就可以在那个页面获得该相册下所有的相片的id
         for album_url, album_name in albumUrlPattern.findall(rawHtml):
-            albums.append((album_name.strip(), album_url + '/reorder'))
+            logger.info("album_url: %s  album_name: %s" % (album_url, album_name))
+            albums.append((album_name.strip(), album_url))
         return albums
     
     def __GetAlbumPhotos(self, userid, albumUrl):
@@ -336,7 +396,8 @@ class RenrenAlbumDownloader:
     # 下载某人的相册            
     def __DownloadOneAlbum(self, userid, path='albums'):
         #if not self.__isLogin: return
-        if os.path.exists(path.decode('utf-8')) == False: os.mkdir(path.decode('utf-8'))        
+        if os.path.exists(path.decode('utf-8')) == False:
+            os.mkdir(path.decode('utf-8'))        
         
         albumsUrl = 'http://www.renren.com/profile.do?id=%s&v=photo_ajax&undefined' % userid                   
         
@@ -344,13 +405,15 @@ class RenrenAlbumDownloader:
             # 取出相册和路径            
             result = self.requester.Request(albumsUrl)            
             rawHtml = result.read()
+
             # 取得人名
             peopleName = self.__GetPeopleNameFromHtml(rawHtml).strip()
             albums = self.__GetAlbumsNameFromHtml(rawHtml)
             
             # 根据人名建文件夹
             path += Delimiter + peopleName
-            if os.path.exists(path.decode('utf-8')) == False: os.mkdir(path.decode('utf-8'))          
+            if os.path.exists(path.decode('utf-8')) == False:
+                os.mkdir(path.decode('utf-8'))          
             
             # 开始进入相册下载            
             MutexPrint('Enter %s' % peopleName.decode('utf-8'))            
@@ -363,7 +426,8 @@ class RenrenAlbumDownloader:
                 album_name = album_name.replace('\\', '')  # 消去特殊符号  
                 album_name = album_name.replace('/', '')
                 savepath = path + Delimiter + album_name              
-                if os.path.exists(savepath.decode('utf-8')) == False: os.mkdir(savepath.decode('utf-8'))  
+                if os.path.exists(savepath.decode('utf-8')) == False:
+                    os.mkdir(savepath.decode('utf-8'))  
                 
                 #
                 newDownloadIdSet = set()
@@ -405,17 +469,17 @@ class RenrenAlbumDownloader:
                     failedQueue = self.__DownloadAlbum(savepath, album_name, imgUrl, file)     
                                    
                 except Exception, e:
-                    print 'Error when downloading.', e      
+                    logger.error('Error when downloading.', exc_info=True)
                 finally:
                     # 取出下载失败的的照片的id
                     while not failedQueue.empty():
                         totalIdSet.remove(failedQueue.get())  
                     file.close()                                            
         except AttributeError, e:
+            logger.error('Error when downloading.', exc_info=True)
             raise   
         except Exception, e:            
-            print 'Error! Please contact QQ: 414112390'
-            print e
+            logger.error('Error! Please contact QQ: 414112390', exc_info=True)
 
     
 class AutoRenrenDownloader:
@@ -523,7 +587,7 @@ class SuperRenren:
         poster.Handle(self.requester, (self.requestToken, groupId, msg))
     # 下载相册
     def DownloadAlbum(self, userId, path = 'albums'):       
-        downloader = RenrenAlbumDownloader()
+        downloader = RenrenAlbumDownloader2012()
         downloader.Handler(self.requester, (userId, path))
     # 自动下载所有好友相册
     def DownloadAllFriendsAlbums(self, path = 'albums', threadnumber = 10):
