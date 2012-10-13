@@ -137,8 +137,32 @@ class RenrenRequester:
     人人访问器
     '''
     LoginUrl = 'http://www.renren.com/PLogin.do'
+
+    def CreateByCookie(self, cookie):
+        logger.info("Trying to login by cookie")
+        cookieFile = urllib2.HTTPCookieProcessor()
+        self.opener = urllib2.build_opener(cookieFile)
+        self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.92 Safari/537.4'),
+                                  ('Cookie', cookie),
+                                  ]
+        
+        req = urllib2.Request(self.LoginUrl)
+
+        try:
+            result = self.opener.open(req)
+        except:
+            logger.error("CreateByCookie Failed", exc_info=True)
+            return False
+
+        if not self.__FindInfoWhenLogin(result):
+            return False
+
+        return True
+
+    
     # 输入用户和密码的元组
     def Create(self, username, password):
+        logger.info("Trying to login by password")
         loginData = {'email':username,
                 'password':password,
                 'origURL':'',
@@ -149,17 +173,24 @@ class RenrenRequester:
         postData = urlencode(loginData)
         cookieFile = urllib2.HTTPCookieProcessor()
         self.opener = urllib2.build_opener(cookieFile)
+        self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.92 Safari/537.4')]
         req = urllib2.Request(self.LoginUrl, postData)
         result = self.opener.open(req)
-        if not (result.geturl() == 'http://www.renren.com/home' or 'http://guide.renren.com/guide'):
-            return False  
+
+        self.__FindInfoWhenLogin(result)
+
+    def __FindInfoWhenLogin(self, result):
+        result_url = result.geturl()
+        logger.info(result_url)
         
-        print result.geturl()
         rawHtml = result.read()        
 
         # 获取用户id
         useridPattern = re.compile(r'user : {"id" : (\d+?)}')
-        self.userid = useridPattern.search(rawHtml).group(1)              
+        try:
+            self.userid = useridPattern.search(rawHtml).group(1)              
+        except:
+            return False
         
         # 查找requestToken        
         pos = rawHtml.find("get_check:'")
@@ -256,7 +287,36 @@ class RenrenFriendList:
         
         return friendIdList        
     
+
 class RenrenAlbumDownloader2012:
+
+    class Downloader(threading.Thread):
+        def __init__(self, tasks_queue):
+            threading.Thread.__init__(self)
+            self.queue = tasks_queue
+
+        def run(self):
+            try:
+                while not self.queue.empty():
+                    img_url, filename = self.queue.get()
+
+                    logger.info("Downloading %s." % filename)
+                    count = 0
+                    # Retry until we get the right picture.
+                    while True:
+                        try:
+                            n, msg = urllib.urlretrieve(img_url, filename)
+                            logger.info(n + " " + str(msg.type))
+                            if "image" in msg.type: 
+                                break
+                            count += 1
+                            if count > 5:
+                                logger.error("Too many times retry.")
+                                break
+                        except:
+                            logger.error("Downloading %s is failed." % filename, exc_info=True)
+            except: 
+                logger.error("Error occured in Downloader.", exc_info=True)
 
     def Handler(self, requester, param):
         self.requester = requester    
@@ -282,34 +342,74 @@ class RenrenAlbumDownloader2012:
             logger.info("album_url: %s  album_name: %s" % (album_url, album_name))
             albums.append((album_name.strip(), album_url))
         return albums
-    
+
+    def __GetImgUrlsInAlbum(self, album_url):
+        result = self.requester.Request(album_url)            
+        rawHtml = unicode(result.read(), "utf-8")
+
+        img_pat = re.compile(r"""<img alt="" class="loading" data-src="(.*?)" src=".*?" />""")
+
+        img_urls = []
+        for img_url in img_pat.findall(rawHtml):
+            img_urls.append(img_url)
+
+        return img_urls
+
+    def __EnsureFolder(self, path):
+        if os.path.exists(path) == False:
+            os.mkdir(path)        
+
     def __DownloadOneAlbum(self, userid, path): 
-        if os.path.exists(path.decode('utf-8')) == False:
-            os.mkdir(path.decode('utf-8'))        
+        path = path.decode('utf-8')
+        self.__EnsureFolder(path)
         
         albumsUrl = 'http://www.renren.com/profile.do?id=%s&v=photo_ajax&undefined' % userid                   
 
         # 打开相册首页，以获取每个相册的地址以及名字
         result = self.requester.Request(albumsUrl)            
-        rawHtml = result.read()
+        rawHtml = unicode(result.read(), "utf-8")
 
         # 取得人名
         peopleName = self.__GetPeopleNameFromHtml(rawHtml).strip()
         albums = self.__GetAlbumsNameFromHtml(rawHtml)
 
+        # 更新path
+        path = os.path.join(path, peopleName)
+        self.__EnsureFolder(path)
+
         logger.info(peopleName)
         logger.info(albums)
 
-        # 开始进入相册下载            
+        album_img_dict = {}
+
+        # 构造dict[相册名]=img_urls的字典
         for album_name, album_url in albums:
             logger.info("album_name: %s  album_url: %s" % (album_name, album_url))
-            result = self.requester.Request(album_url)            
-            rawHtml = result.read()
-            print rawHtml
-
             
-            """<img alt="" class="loading" data-src="(.*?)" src=".*?" />"""
-            break
+            album_img_dict[album_name] = self.__GetImgUrlsInAlbum(album_url)
+
+        # 创建文件夹，以及下载任务 
+        download_tasks = Queue()
+        for album_name, img_urls in album_img_dict.iteritems(): 
+            album_path = os.path.join(path, album_name)
+            logger.info("Create %s if not exists." % album_path)
+            self.__EnsureFolder(album_path)
+
+            for index, img_url in enumerate(img_urls):
+                filename = os.path.join(album_path, str(index) + ".jpg")
+                download_tasks.put((img_url, filename))
+
+        # 开始并行下载
+        threads = []
+        for i in xrange(10):
+            downloader = self.Downloader(download_tasks)
+            downloader.start()
+            threads.append(downloader)
+
+        for t in threads:
+            t.join()
+
+
 
             
 
@@ -572,11 +672,22 @@ class SuperRenren:
     def Create(self, username, password):
         self.requester = RenrenRequester()
         if self.requester.Create(username, password):
-            self.userid = self.requester.userid
-            self.requestToken = self.requester.requestToken
-            self._rtk = self.requester._rtk
+            self.__GetInfoFromRequester()
             return True
         return False
+
+    def CreateByCookie(self, cookie):
+        self.requester = RenrenRequester()
+        if self.requester.CreateByCookie(cookie):
+            self.__GetInfoFromRequester()
+            return True
+        return False
+
+    def __GetInfoFromRequester(self):
+        self.userid = self.requester.userid
+        self.requestToken = self.requester.requestToken
+        self._rtk = self.requester._rtk
+
     # 发送个人状态
     def PostMsg(self, msg):
         poster = RenrenPostMsg()
