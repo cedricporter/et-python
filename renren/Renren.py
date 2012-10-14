@@ -322,22 +322,27 @@ class RenrenAlbumDownloader2012:
         
     def __GetPeopleNameFromHtml(self, rawHtml):
         '''解析html获取人名'''
-        peopleNamePattern = re.compile(r'<h2>(.*?)<span>')
+        peopleNamePattern = re.compile(r'<title>(.*?)</title>')
         # 取得人名
         peopleName = peopleNamePattern.search(rawHtml).group(1).strip()
+        peopleName = peopleName[peopleName.rfind(' ') + 1:]
         return peopleName
 
     def __GetAlbumsNameFromHtml(self, rawHtml):
         '''获取相册名字以及地址
 
-        返回元组列表（相册名，地址）'''
-        albumUrlPattern = re.compile(r'<a href="(.*?)" stats="album_album"><img.*?/>(.*?)</a>')
+        返回元组列表（相册名，地址）
+        '''
+        albumUrlPattern = re.compile(r'''\n</a>\n<a href="(.*?)\?frommyphoto" class="album-title">.*?<span class="album-name">(.*?)</span>''', re.S)
 
         albums = []
-        # 把相册路径定向到排序页面，就可以在那个页面获得该相册下所有的相片的id
         for album_url, album_name in albumUrlPattern.findall(rawHtml):
-            logger.info("album_url: %s  album_name: %s" % (album_url, album_name))
-            albums.append((album_name.strip(), album_url))
+            album_name = album_name.strip()
+            if album_name == '<span class="userhead">':
+                album_name = u"头像相册"
+            logger.info("album_url: [%s]  album_name: [%s]" % (album_url, album_name))
+            albums.append((album_name, album_url))
+
         return albums
 
     def __GetImgUrlsInAlbum(self, album_url):
@@ -351,12 +356,6 @@ class RenrenAlbumDownloader2012:
         img_urls = []
         for item in photoList:
             img_urls.append((item['title'], item['largeUrl'])) 
-
-        # img_pat = re.compile(r"""<img alt="(.*?)" class="loading" data-src="(.*?)" src=".*?" />""")
-
-        # img_urls = []
-        # for img_name, img_url in img_pat.findall(rawHtml):
-        #     img_urls.append((img_name, img_url))
 
         return img_urls
 
@@ -373,7 +372,8 @@ class RenrenAlbumDownloader2012:
         path = path.decode('utf-8')
         self.__EnsureFolder(path)
         
-        albumsUrl = 'http://www.renren.com/profile.do?id=%s&v=photo_ajax&undefined' % userid                   
+        # albumsUrl = 'http://www.renren.com/profile.do?id=%s&v=photo_ajax&undefined' % userid                   
+        albumsUrl = "http://photo.renren.com/photo/%s/album/relatives" % userid
 
         # 打开相册首页，以获取每个相册的地址以及名字
         result = self.requester.Request(albumsUrl)            
@@ -422,7 +422,7 @@ class RenrenAlbumDownloader2012:
 
         # 开始并行下载
         threads = []
-        for i in xrange(10):
+        for i in xrange(20):
             downloader = self.Downloader(download_tasks)
             downloader.start()
             threads.append(downloader)
