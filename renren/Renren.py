@@ -4,18 +4,13 @@
 #
 
 from HTMLParser import HTMLParser
-from Queue import Empty
-from Queue import Queue
+from Queue import Empty, Queue
 from re import match
-from sys import exit
 from urllib import urlencode
-import os
-import re
-import socket
+import os, re, json, sys
 import threading
 import time
-import urllib
-import urllib2
+import urllib,urllib2
 import shelve
 from pprint import pprint
 
@@ -177,7 +172,9 @@ class RenrenRequester:
         req = urllib2.Request(self.LoginUrl, postData)
         result = self.opener.open(req)
 
-        self.__FindInfoWhenLogin(result)
+        if not self.__FindInfoWhenLogin(result):
+            return False
+        return True
 
     def __FindInfoWhenLogin(self, result):
         result_url = result.geturl()
@@ -344,20 +341,33 @@ class RenrenAlbumDownloader2012:
         return albums
 
     def __GetImgUrlsInAlbum(self, album_url):
+        album_url += "/bypage/ajax?curPage=0&pagenum=100" # pick 100 pages which has 20 per page
         result = self.requester.Request(album_url)            
         rawHtml = unicode(result.read(), "utf-8")
 
-        img_pat = re.compile(r"""<img alt="" class="loading" data-src="(.*?)" src=".*?" />""")
+        data = json.loads(rawHtml)
+        photoList = data['photoList']
 
         img_urls = []
-        for img_url in img_pat.findall(rawHtml):
-            img_urls.append(img_url)
+        for item in photoList:
+            img_urls.append((item['title'], item['largeUrl'])) 
+
+        # img_pat = re.compile(r"""<img alt="(.*?)" class="loading" data-src="(.*?)" src=".*?" />""")
+
+        # img_urls = []
+        # for img_name, img_url in img_pat.findall(rawHtml):
+        #     img_urls.append((img_name, img_url))
 
         return img_urls
 
     def __EnsureFolder(self, path):
         if os.path.exists(path) == False:
             os.mkdir(path)        
+
+    def __NormFilename(self, filename):
+        filename = re.sub(r"[\t\\/:*?<>|]", "", filename)
+        filename = filename.strip(".")
+        return filename
 
     def __DownloadOneAlbum(self, userid, path): 
         path = path.decode('utf-8')
@@ -374,6 +384,7 @@ class RenrenAlbumDownloader2012:
         albums = self.__GetAlbumsNameFromHtml(rawHtml)
 
         # 更新path
+        peopleName = self.__NormFilename(peopleName)
         path = os.path.join(path, peopleName)
         self.__EnsureFolder(path)
 
@@ -395,9 +406,19 @@ class RenrenAlbumDownloader2012:
             logger.info("Create %s if not exists." % album_path)
             self.__EnsureFolder(album_path)
 
-            for index, img_url in enumerate(img_urls):
-                filename = os.path.join(album_path, str(index) + ".jpg")
+            index = 1
+            name_set = set()
+            for alt, img_url in img_urls:
+                name = self.__NormFilename(alt)
+                if not name:
+                    name = str(index)
+                    index += 1
+                while name in name_set:
+                    name += "I"
+                name_set.add(name)
+                filename = os.path.join(album_path, name + ".jpg")
                 download_tasks.put((img_url, filename))
+        logger.info("Download Tasks size: %d." % download_tasks.qsize())
 
         # 开始并行下载
         threads = []
@@ -704,6 +725,3 @@ class SuperRenren:
     def DownloadAllFriendsAlbums(self, path = 'albums', threadnumber = 10):
         downloader = AutoRenrenDownloader()
         downloader.handler(self.requester, (path, threadnumber))
-             
-        
-

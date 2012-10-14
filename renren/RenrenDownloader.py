@@ -24,7 +24,8 @@ def main():
         # renren.PostMsg(time.asctime())
         # renren.PostGroupMsg('387635422', '%s' % time.asctime())
         # renren.DownloadAlbum('333982368', 'sss') 
-        renren.DownloadAlbum('285201751', 'cai')
+        # renren.DownloadAlbum('285201751', 'cai')
+        renren.DownloadAlbum('305263375', 'cai') 
         # renren.DownloadAllFriendsAlbums()
     
 if __name__ == '__main__':
