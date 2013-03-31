@@ -1,0 +1,7 @@
+#!/bin/sh
+echo "hello", $1
+echo "et", $2
+nmap -sP -PR $1 | awk '/^Nmap scan report for/ { print $$1}' 
+# nmap -sP -PR $1 | awk '/^Nmap scan report for/ {if ($5 != "$2") print $$5}' 
+# nmap -sP -PR $1 | awk '/^Nmap scan report for/ {if ($5 != "$2") print $$5}' | ./arpkill.py
+
