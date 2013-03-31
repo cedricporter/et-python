@@ -27,36 +27,36 @@ def connect(username, userid):
     loginData = {'kssj':'111',
                 'loginName':username.decode('utf-8').encode('gb2312'),
                 'loginPass':userid}
-    
+
     postData = urlencode(loginData)
-    
+
     req = urllib2.Request('http://222.16.33.245:888/cetresult.asp', postData)
     cookieFile = urllib2.HTTPCookieProcessor()
-    opener = urllib2.build_opener(cookieFile)  
-    result = opener.open(req)    
-    
+    opener = urllib2.build_opener(cookieFile)
+    result = opener.open(req)
+
     return re.findall(r'<td width="296">(\d{15})</td>', result.read())
-    
+
 
 def GetScore(id, username):
     loginData = {'id':id,
                 'name':username.decode("utf-8").encode("gbk")
                 }
-    
-    
-    
+
+
+
     postData = urlencode(loginData)
-    
+
     print postData
-    
+
     req = urllib2.Request('http://cet.99sushe.com/s')
     req.add_header("Origin", "http://cet.99sushe.com")
     req.add_header("Referer", "http://cet.99sushe.com")
     req.add_data(postData)
     cookieFile = urllib2.HTTPCookieProcessor()
-    opener = urllib2.build_opener(cookieFile)  
-    result = opener.open(req)    
-    
+    opener = urllib2.build_opener(cookieFile)
+    result = opener.open(req)
+
     return result.read()
 
 '''
@@ -67,33 +67,31 @@ def GetScore(id, username):
 写作：64
 '''
 
-'144,140,39,64,387,华南理工大学,杨旭瑜,0'
+'144,140,39,64,387,华南理工大学,XXX,0'
 
 keyword = ['听力：', '阅读：', '综合：', '写作：', '您的成绩总分：', '学校：', '姓名：', 'End-']
 
 def main():
     file = open('id.txt')
-    
+
     userinfo = []
-    
+
     for line in file:
         id, name = line.split()[0], line.split()[1]
-        userinfo.append((id, name))   
-        
+        userinfo.append((id, name))
+
     for id, name in userinfo:
         i = 0
         for item in GetScore(id, name[0:6]).decode('gbk').split(','):
             print keyword[i],
             print item
             i += 1
-            
-        
-    
-        
-    
-        
+
+
+
+
+
+
 
 if __name__ == '__main__':
     main()
-
-

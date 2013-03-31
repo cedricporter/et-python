@@ -1,4 +1,10 @@
 #!/bin/sh
-echo "hello", $1
-echo "et", $2
-nmap -sP -PR $1 | awk -v my_ip=$2 '/^Nmap scan report for/ {if ($5 != my_ip) print $5}' | ./arpkill.py
+# Author: Hua Liang[Stupid ET]
+
+ip=`ifconfig | awk '/inet addr:/ {print $2}' | awk -F: '{if ($2 != "127.0.0.1") print $2}'`
+ip_mask=`echo $ip | awk -F. '{print $1 "." $2 "." $3 ".0/24"}'`
+
+echo "ip:" $ip
+echo "ipmask:" $ip_mask
+
+nmap -sP -PR $ip_mask | awk -v my_ip=$ip '/^Nmap scan report for/ {if ($5 != my_ip) print $5}' | ./arpkill.py
