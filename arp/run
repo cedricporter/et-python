@@ -1,5 +1,4 @@
 #!/bin/sh
 echo "hello", $1
 echo "et", $2
-nmap -sP -PR $1 | awk -v my_ip=$2 '/^Nmap scan report for/ {if ($5 != $my_ip) print $5}' | ./arpkill.py
-
+nmap -sP -PR $1 | awk -v my_ip=$2 '/^Nmap scan report for/ {if ($5 != my_ip) print $5}' | ./arpkill.py

